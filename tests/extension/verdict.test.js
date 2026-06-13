@@ -5,6 +5,9 @@ describe("shouldCaptureUrl", () => {
   it("matches the check polling endpoint", () => {
     expect(shouldCaptureUrl("https://leetcode.com/submissions/detail/123/check/")).toBe(true);
   });
+  it("matches the newer /v2/ check endpoint (verified live 2026-06-13)", () => {
+    expect(shouldCaptureUrl("/submissions/detail/2032043456/v2/check/")).toBe(true);
+  });
   it("ignores unrelated urls", () => {
     expect(shouldCaptureUrl("https://leetcode.com/graphql/")).toBe(false);
     expect(shouldCaptureUrl("")).toBe(false);

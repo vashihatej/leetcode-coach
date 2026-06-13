@@ -1,5 +1,6 @@
 export function shouldCaptureUrl(url) {
-  return /\/submissions\/detail\/\d+\/check\/?/.test(url || "");
+  // LeetCode polls /submissions/detail/<id>/check/ — newer flows insert a /v2/ segment.
+  return /\/submissions\/detail\/\d+\/(?:v\d+\/)?check\/?/.test(url || "");
 }
 
 export function parseVerdict(json) {
