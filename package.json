@@ -1,0 +1,21 @@
+{
+  "name": "leetcode-coach",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "coach": "src/cli/coach.js"
+  },
+  "scripts": {
+    "start": "node src/server/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "commander": "^12.0.0",
+    "express": "^4.19.0"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0",
+    "vitest": "^2.0.0"
+  }
+}
