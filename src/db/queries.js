@@ -47,3 +47,26 @@ export function listAttempts(db, problemId) {
     .prepare("SELECT * FROM attempts WHERE problem_id = ? ORDER BY date DESC")
     .all(problemId);
 }
+
+const VALID_MASTERY = ["not_started", "shaky", "solid"];
+
+export function ensurePattern(db, name) {
+  db.prepare(
+    "INSERT INTO patterns (name) VALUES (?) ON CONFLICT(name) DO NOTHING"
+  ).run(name);
+  return db.prepare("SELECT id FROM patterns WHERE name = ?").get(name).id;
+}
+
+export function setMastery(db, name, level) {
+  if (!VALID_MASTERY.includes(level)) {
+    throw new Error(`invalid mastery level: ${level}`);
+  }
+  ensurePattern(db, name);
+  db.prepare(
+    "UPDATE patterns SET mastery = ?, last_practiced = ? WHERE name = ?"
+  ).run(level, new Date().toISOString(), name);
+}
+
+export function listMastery(db) {
+  return db.prepare("SELECT * FROM patterns ORDER BY name").all();
+}
