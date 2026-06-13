@@ -1,0 +1,5 @@
+node_modules/
+coach.db
+session.md
+.env
+.DS_Store
