@@ -1,5 +1,7 @@
 node_modules/
 coach.db
+coach.db-shm
+coach.db-wal
 session.md
 .env
 .DS_Store
