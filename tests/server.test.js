@@ -24,7 +24,14 @@ describe("POST /event", () => {
         url: "https://leetcode.com/problems/two-sum/",
         language: "python3",
         code: "print(1)",
-        lastResult: { type: "run", status: "Accepted" },
+        lastResult: {
+          statusMsg: "Accepted",
+          totalCorrect: 57,
+          totalTestcases: 57,
+          runtime: "3 ms",
+          memory: "10.2 MB",
+          error: null,
+        },
       });
 
     expect(res.status).toBe(200);

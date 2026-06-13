@@ -21,11 +21,6 @@
     const m = /text-difficulty-(easy|medium|hard)/.exec(el.className);
     return m ? m[1][0].toUpperCase() + m[1].slice(1) : null;
   }
-  function parseDescription() {
-    const el = document.querySelector('[data-track-load="description_content"]');
-    return el ? el.textContent.trim() : null;
-  }
-
   function buildEvent() {
     return {
       slug: parseSlug(location.pathname),
@@ -62,7 +57,7 @@
   window.addEventListener("message", (e) => {
     if (e.source !== window) return;
     const d = e.data;
-    if (!d || d.source !== SOURCE) return;
+    if (!d || d.source !== SOURCE || !d.payload) return;
     if (d.type === "coach:code") {
       latestCode = d.payload.code;
       latestLanguage = d.payload.language;

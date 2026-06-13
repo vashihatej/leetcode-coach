@@ -17,7 +17,14 @@ describe("writeSession", () => {
       url: "https://leetcode.com/problems/two-sum/",
       language: "python3",
       code: "def two_sum(nums, target):\n    pass",
-      lastResult: { type: "submit", status: "Wrong Answer", details: "case 5 failed" },
+      lastResult: {
+        statusMsg: "Wrong Answer",
+        totalCorrect: 4,
+        totalTestcases: 57,
+        runtime: null,
+        memory: null,
+        error: null,
+      },
     });
     const out = fs.readFileSync(tmp, "utf8");
     expect(out).toContain("# Two Sum");
@@ -25,6 +32,26 @@ describe("writeSession", () => {
     expect(out).toContain("python3");
     expect(out).toContain("def two_sum");
     expect(out).toContain("Wrong Answer");
+    expect(out).toContain("4/57 testcases");
+  });
+
+  it("renders runtime/memory and an error block from the extension verdict shape", () => {
+    writeSession(tmp, {
+      slug: "two-sum",
+      title: "Two Sum",
+      difficulty: "Easy",
+      lastResult: {
+        statusMsg: "Runtime Error",
+        totalCorrect: null,
+        totalTestcases: null,
+        runtime: null,
+        memory: null,
+        error: "IndexError: list index out of range",
+      },
+    });
+    const out = fs.readFileSync(tmp, "utf8");
+    expect(out).toContain("**Runtime Error**");
+    expect(out).toContain("IndexError: list index out of range");
   });
 
   it("handles missing code and result gracefully", () => {
