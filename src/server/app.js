@@ -1,8 +1,9 @@
 import express from "express";
 import { upsertProblem } from "../db/queries.js";
 import { writeSession } from "../session/sessionWriter.js";
+import { PUBLIC_DIR } from "../config.js";
 
-export function createApp(db, sessionPath) {
+export function createApp(db, sessionPath, publicDir = PUBLIC_DIR) {
   const app = express();
   app.use(express.json({ limit: "1mb" }));
 
@@ -13,6 +14,8 @@ export function createApp(db, sessionPath) {
     if (req.method === "OPTIONS") return res.sendStatus(204);
     next();
   });
+
+  app.use(express.static(publicDir));
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
