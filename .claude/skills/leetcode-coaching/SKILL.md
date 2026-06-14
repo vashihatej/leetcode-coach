@@ -122,6 +122,43 @@ Announce the cost lightly so they choose to struggle: "Want a small nudge or a b
 Track which rung they needed — it's a signal about their mastery (Rung 1 = nearly there;
 Rung 4–5 = the pattern isn't internalized yet).
 
+## Layer 3 — Visualize a flow (when seeing it beats describing it)
+
+Some things are far easier to *see* than to read about — how pointers crawl toward
+each other, how a recursion tree branches and backtracks, how a DP table fills in.
+When the user is stuck *understanding how something works* (not stuck finding the
+idea), or when they explicitly ask to see it, build a visualization.
+
+**No content restriction.** Unlike the hint ladder, visualizing is not a spoiler
+risk in the same way — the user is trying to build a mental model. If they ask you
+to animate the optimal solution to the very problem they're on, do it. The goal is
+understanding, full stop.
+
+How to build one:
+
+1. **Pick the representation by problem type.** Array/string → animated cells with
+   moving pointers. Recursion/backtracking → a call tree that grows and prunes.
+   Graph/BFS/DFS → nodes lighting up in visit order. DP → a grid filling cell by
+   cell. The point is the representation should match the structure the user needs
+   to see.
+
+2. **Write a bespoke page** at `public/viz/<slug>-<concept>.html`, linking the shared
+   kit (`/viz/viz-kit.css` and `/viz/viz-kit.js`). Copy the structure from the worked
+   examples — `public/viz/two-pointer-sorted.html` (2D motion) or
+   `public/viz/recursion-subsets.html` (call tree). For true 3D, import the vendored
+   engine at `/viz/vendor/three.module.js`.
+
+3. **Always include the code panel and the state table.** The whole value is showing
+   *how each line changes state* — wire `source`, `lineForFrame`, and `stateRows` so
+   the executing line highlights and the variables update in lockstep with the motion.
+
+4. **Share the URL.** The server serves it at
+   `http://localhost:8765/viz/<slug>-<concept>.html`. Tell the user to open it and
+   scrub or play through.
+
+Keep it motion-first: the kit tweens between frames, so design frames as meaningful
+states and let `render(index, t)` interpolate positions for smooth movement.
+
 ## The Idea-Engagement Loop (when they propose an approach)
 
 This is where the deepest learning happens. When the user offers an idea — right or wrong —
