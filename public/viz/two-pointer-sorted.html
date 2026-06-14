@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Two Pointer — Sorted Array</title>
+  <link rel="stylesheet" href="/viz/viz-kit.css" />
+</head>
+<body class="viz-app">
+  <pre id="code" class="viz-code"></pre>
+  <div class="viz-stagewrap">
+    <h1 class="viz-title">Two Pointer — find a pair summing to target</h1>
+    <div id="stage" class="viz-stage"></div>
+    <div id="note" class="viz-note"></div>
+  </div>
+  <div id="state" class="viz-state"></div>
+  <div id="controls" class="viz-controls"></div>
+
+  <script type="module">
+    import { Viz, lerp } from "/viz/viz-kit.js";
+
+    const A = [1, 3, 4, 6, 8, 11];
+    const TARGET = 10;
+    const CELL = 64; // 56px cell + 8px gap
+
+    const SOURCE = [
+      "def two_sum(a, target):",
+      "    lo, hi = 0, len(a) - 1",
+      "    while lo < hi:",
+      "        s = a[lo] + a[hi]",
+      "        if s == target: return (lo, hi)",
+      "        elif s < target: lo += 1",
+      "        else: hi -= 1",
+    ].join("\n");
+
+    // Build keyframes by simulating the algorithm.
+    function buildFrames() {
+      const frames = [];
+      let lo = 0, hi = A.length - 1;
+      frames.push({ lo, hi, sum: null, line: 1, status: "start",
+        note: `Pointers at both ends, target = ${TARGET}.` });
+      while (lo < hi) {
+        const sum = A[lo] + A[hi];
+        frames.push({ lo, hi, sum, line: 3,
+          status: sum === TARGET ? "match" : "check",
+          note: `a[${lo}] + a[${hi}] = ${A[lo]} + ${A[hi]} = ${sum}.` });
+        if (sum === TARGET) {
+          frames.push({ lo, hi, sum, line: 4, status: "match",
+            note: `Found it: indices (${lo}, ${hi}).` });
+          break;
+        } else if (sum < TARGET) {
+          frames.push({ lo, hi, sum, line: 5, status: "move-lo",
+            note: `${sum} < ${TARGET}: too small, move lo right.` });
+          lo += 1;
+        } else {
+          frames.push({ lo, hi, sum, line: 6, status: "move-hi",
+            note: `${sum} > ${TARGET}: too big, move hi left.` });
+          hi -= 1;
+        }
+      }
+      return frames;
+    }
+
+    const frames = buildFrames();
+    const stage = document.getElementById("stage");
+
+    const xFor = (i) => 20 + i * CELL;
+
+    // Static cells.
+    const cells = A.map((v, i) => {
+      const cell = document.createElement("div");
+      cell.className = "viz-cell";
+      cell.style.top = "60px";
+      cell.style.left = `${xFor(i)}px`;
+      cell.innerHTML =
+        `<span class="viz-cell-val">${v}</span><span class="viz-cell-idx">${i}</span>`;
+      stage.appendChild(cell);
+      return cell;
+    });
+
+    const loMark = document.createElement("div");
+    loMark.className = "viz-pointer viz-pointer--lo";
+    loMark.textContent = "lo";
+    loMark.style.top = "20px";
+    const hiMark = document.createElement("div");
+    hiMark.className = "viz-pointer viz-pointer--hi";
+    hiMark.textContent = "hi";
+    hiMark.style.top = "20px";
+    stage.append(loMark, hiMark);
+
+    function render(i, t) {
+      const f = frames[i];
+      const prev = frames[Math.max(0, i - 1)];
+      // Glide pointers between previous and current positions.
+      const loX = lerp(xFor(prev.lo), xFor(f.lo), t);
+      const hiX = lerp(xFor(prev.hi), xFor(f.hi), t);
+      loMark.style.left = `${loX}px`;
+      hiMark.style.left = `${hiX}px`;
+      cells.forEach((cell, idx) => {
+        const active = idx === f.lo || idx === f.hi;
+        const match = f.status === "match" && active;
+        cell.classList.toggle("viz-cell--active", active && !match);
+        cell.classList.toggle("viz-cell--match", match);
+      });
+    }
+
+    Viz.create({
+      controls: document.getElementById("controls"),
+      frameCount: frames.length,
+      render,
+      codeEl: document.getElementById("code"),
+      source: SOURCE,
+      lineForFrame: (i) => frames[i].line,
+      stateEl: document.getElementById("state"),
+      stateRows: (i) => {
+        const f = frames[i];
+        return [
+          ["lo", String(f.lo)],
+          ["hi", String(f.hi)],
+          ["a[lo]", String(A[f.lo])],
+          ["a[hi]", String(A[f.hi])],
+          ["sum", f.sum == null ? "—" : String(f.sum)],
+          ["target", String(TARGET)],
+        ];
+      },
+      noteEl: document.getElementById("note"),
+      note: (i) => frames[i].note,
+    });
+  </script>
+</body>
+</html>

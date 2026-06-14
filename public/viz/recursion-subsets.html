@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Recursion — Subsets (Backtracking)</title>
+  <link rel="stylesheet" href="/viz/viz-kit.css" />
+</head>
+<body class="viz-app">
+  <pre id="code" class="viz-code"></pre>
+  <div class="viz-stagewrap">
+    <h1 class="viz-title">Subsets — the recursion call tree</h1>
+    <div id="stage" class="viz-stage viz-stage--svg"></div>
+    <div id="note" class="viz-note"></div>
+  </div>
+  <div id="state" class="viz-state"></div>
+  <div id="controls" class="viz-controls"></div>
+
+  <script type="module">
+    import { Viz } from "/viz/viz-kit.js";
+
+    const ARR = [1, 2, 3];
+    const SVGNS = "http://www.w3.org/2000/svg";
+    const HSPACE = 90, VSPACE = 90, MX = 50, MY = 40;
+
+    const SOURCE = [
+      "def subsets(arr):",
+      "    res = []",
+      "    def dfs(i, path):",
+      "        if i == len(arr):",
+      "            res.append(path[:]); return",
+      "        dfs(i + 1, path)            # skip arr[i]",
+      "        path.append(arr[i])",
+      "        dfs(i + 1, path)            # take arr[i]",
+      "        path.pop()",
+      "    dfs(0, [])",
+      "    return res",
+    ].join("\n");
+
+    // Build the call tree + a frame per enter/return event.
+    function build() {
+      const nodes = [];
+      const children = new Map();
+      const frames = [];
+      let nextId = 0;
+
+      function dfs(i, path, parent, depth) {
+        const id = nextId++;
+        const label = `dfs(${i}, [${path.join(",")}])`;
+        nodes.push({ id, parent, depth, label });
+        if (parent != null) {
+          if (!children.has(parent)) children.set(parent, []);
+          children.get(parent).push(id);
+        }
+        frames.push({ active: id, count: nodes.length, line: i === ARR.length ? 3 : 2,
+          path: [...path], note: i === ARR.length
+            ? `Base case: record subset [${path.join(",")}].`
+            : `Enter dfs(i=${i}), current path [${path.join(",")}].` });
+        if (i === ARR.length) {
+          frames.push({ active: id, count: nodes.length, line: 4, path: [...path],
+            note: `Append [${path.join(",")}] to results.` });
+          return id;
+        }
+        dfs(i + 1, path, id, depth + 1);          // skip
+        path.push(ARR[i]);
+        dfs(i + 1, path, id, depth + 1);          // take
+        path.pop();
+        frames.push({ active: id, count: nodes.length, line: 8, path: [...path],
+          note: `Backtrack out of dfs(i=${i}).` });
+        return id;
+      }
+
+      dfs(0, [], null, 0);
+      return { nodes, children, frames };
+    }
+
+    const { nodes, children, frames } = build();
+
+    // Layout: leaves get sequential x; parents centered over children (post-order).
+    const pos = new Map();
+    let leafX = 0;
+    function layout(id) {
+      const kids = children.get(id) || [];
+      const node = nodes[id];
+      const y = MY + node.depth * VSPACE;
+      if (kids.length === 0) {
+        const x = MX + leafX * HSPACE;
+        leafX += 1;
+        pos.set(id, { x, y });
+        return x;
+      }
+      const xs = kids.map(layout);
+      const x = (Math.min(...xs) + Math.max(...xs)) / 2;
+      pos.set(id, { x, y });
+      return x;
+    }
+    layout(0);
+
+    const stage = document.getElementById("stage");
+    const svg = document.createElementNS(SVGNS, "svg");
+    svg.setAttribute("viewBox", "0 0 720 420");
+    stage.appendChild(svg);
+
+    function render(i, t) {
+      const f = frames[i];
+      const visible = nodes.slice(0, f.count);
+      svg.innerHTML = "";
+      // Edges first.
+      for (const n of visible) {
+        if (n.parent == null) continue;
+        const a = pos.get(n.parent), b = pos.get(n.id);
+        const edge = document.createElementNS(SVGNS, "line");
+        edge.setAttribute("class", "viz-edge");
+        edge.setAttribute("x1", a.x); edge.setAttribute("y1", a.y);
+        edge.setAttribute("x2", b.x); edge.setAttribute("y2", b.y);
+        svg.appendChild(edge);
+      }
+      // Nodes.
+      for (const n of visible) {
+        const p = pos.get(n.id);
+        const g = document.createElementNS(SVGNS, "g");
+        const isActive = n.id === f.active;
+        // Newly entered active node scales up via t.
+        const scale = isActive ? 0.6 + 0.4 * t : 1;
+        g.setAttribute("transform", `translate(${p.x} ${p.y}) scale(${scale})`);
+        const rect = document.createElementNS(SVGNS, "rect");
+        rect.setAttribute("class", isActive ? "viz-node viz-node--active" : "viz-node");
+        rect.setAttribute("x", -36); rect.setAttribute("y", -16);
+        rect.setAttribute("width", 72); rect.setAttribute("height", 32);
+        rect.setAttribute("rx", 6);
+        const label = document.createElementNS(SVGNS, "text");
+        label.setAttribute("class", "viz-node-label");
+        label.textContent = n.label;
+        g.append(rect, label);
+        svg.appendChild(g);
+      }
+    }
+
+    Viz.create({
+      controls: document.getElementById("controls"),
+      frameCount: frames.length,
+      render,
+      codeEl: document.getElementById("code"),
+      source: SOURCE,
+      lineForFrame: (i) => frames[i].line,
+      stateEl: document.getElementById("state"),
+      stateRows: (i) => {
+        const f = frames[i];
+        return [
+          ["path", `[${f.path.join(",")}]`],
+          ["depth", String(nodes[f.active].depth)],
+          ["calls", String(f.count)],
+        ];
+      },
+      noteEl: document.getElementById("note"),
+      note: (i) => frames[i].note,
+    });
+  </script>
+</body>
+</html>
