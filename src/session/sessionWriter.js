@@ -18,8 +18,17 @@ export function writeSession(filePath, event) {
 
   let resultBlock = "_(no run/submit yet)_";
   if (lastResult) {
-    const { type = "?", status = "?", details = "" } = lastResult;
-    resultBlock = `**${type}** → ${status}${details ? `\n\n${details}` : ""}`;
+    const { statusMsg = "?", totalCorrect, totalTestcases, runtime, memory, error } =
+      lastResult;
+    const parts = [];
+    if (totalCorrect != null && totalTestcases != null) {
+      parts.push(`${totalCorrect}/${totalTestcases} testcases`);
+    }
+    if (runtime) parts.push(runtime);
+    if (memory) parts.push(memory);
+    const meta = parts.length ? ` — ${parts.join(" · ")}` : "";
+    resultBlock = `**${statusMsg}**${meta}`;
+    if (error) resultBlock += "\n\n```\n" + error + "\n```";
   }
 
   const md = `# ${title}
