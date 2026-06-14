@@ -6,121 +6,157 @@
 
 ## Goal
 
-Let the coach generate on-demand animated explanations of algorithm/data-structure flows when
-the user struggles to *see* how something works — array cells lighting up, pointers sliding, a
-DP grid filling, a tree/graph traversal, a recursion stack growing and unwinding. Each
-animation is a **bespoke** self-contained-logic HTML file per concept, but leans on a **small
-shared kit** so playback controls and styling stay consistent and reliable instead of being
-rewritten from scratch every time. Files are **served by the coach server** at
-`http://localhost:8765/viz/<name>` so the coach can hand the user a stable URL.
+Let the coach generate genuinely great on-demand **motion** animations that make any concept,
+logic, or whole problem legible — from easy array/two-pointer flows to hard recursive/backtracking
+flows where the user needs to *see* the call tree grow and unwind, watch each line of code mutate
+state, and follow how data moves. Animations interpolate smoothly between states (3Blue1Brown /
+Manim-style easing and motion), adapt their representation to the problem type, and pair the visual
+with a synced source-code + variable-state panel so the user sees exactly how each line affects the
+data. Each animation is a **bespoke** HTML file per concept, but leans on a **shared kit** (motion
+engine, controls, code/state panels, rich 2D primitives, and a locally-vendored 3D engine) so the
+hard parts are reused and stay reliable. Files are **served by the coach server** at
+`http://localhost:8765/viz/<name>`.
 
 ## Decisions (locked during brainstorming)
 
 1. **Bespoke per concept.** The coach writes a fresh HTML file per concept (maximum
    flexibility), rather than choosing from a fixed template library or driving a generic
    trace player.
-2. **Small shared kit.** A served `viz-kit.css` + `viz-kit.js` provides play/step/reset
-   controls, common cell/pointer/grid/node/stack styling, and a stepper helper. Bespoke files
-   link to the kit, so each one supplies only its own data + `render(i)` logic.
-3. **Server-served.** The server exposes the viz directory via `express.static`; the coach
+2. **Shared kit.** A served `viz-kit.css` + `viz-kit.js` provides the motion/timeline engine,
+   playback controls, the synced code+state panels, and rich 2D rendering primitives
+   (cells, pointers, grids, nodes/edges, call-tree, stack). Bespoke files supply only their own
+   data, the source-code listing, and `render(index, t)`.
+3. **Hybrid 2D + vendored 3D.** Default rendering is rich 2D (SVG/Canvas/CSS with smooth
+   motion). A locally-vendored 3D engine (Three.js, `public/viz/vendor/three.module.js`) is
+   available for concepts where real depth helps — 3D recursion trees, DP cubes, layered graph
+   traversal — with orbit camera plus the same step controls. Vendored, not CDN, so everything
+   runs locally.
+4. **Synced code + state panel.** Every visualization shows the algorithm's source beside the
+   animation, highlighting the executing line per keyframe and displaying the current variables,
+   so "how each line of logic affects state" is explicit (Python-Tutor-style, but animated).
+5. **Motion, not slideshow.** Transitions between keyframes are interpolated over a duration
+   with easing; pointers glide, nodes appear/move, bars grow. Stepping animates the single
+   transition; play runs continuous motion.
+6. **No anti-spoiler restriction on visualizing.** The coach may visualize anything the user
+   asks for — including the optimal solution to the current problem. (Visualizing is a teaching
+   tool; the broader coaching skill still decides *when* leading the user is better than showing,
+   but the visualizer itself imposes no content restriction.)
+7. **Server-served.** The server exposes the viz directory via `express.static`; the coach
    shares `http://localhost:8765/viz/<name>`. (Rejected: opening `file://` paths — no stable
-   URL.)
+   URL, and ES-module/vendored imports are cleaner over http.)
 
 ## Architecture
 
-The reusable, buildable core is the **kit**; each concept animation is a thin bespoke file
-that supplies its own data and a `render(i)` function and delegates playback and styling to the
-kit. No build step — plain `<link>`/`<script>`, consistent with the rest of the project (Node
-ESM, no bundler).
+The reusable, buildable core is the **kit**; each concept animation is a bespoke file that
+supplies its own data, source listing, and a `render(index, t)` function, delegating motion,
+playback, and the code/state panels to the kit. No build step — plain `<link>` + ES-module
+`<script type="module">`, consistent with the rest of the project (Node ESM, no bundler).
 
 ```
 public/viz/
-  viz-kit.css          # shared visual primitives (cells, pointers, grid, nodes, stack, controls)
-  viz-kit.js           # global `Viz` + pure stepper state machine + DOM control bar
-  two-pointer-sorted.html   # worked example (canonical skeleton)
+  viz-kit.css               # rich theme: stage, cells, pointers, grid, nodes/edges,
+                            #   call-tree, stack, code panel, state table, controls
+  viz-kit.js                # ES module: pure stepper + pure timeline/easing core,
+                            #   the Viz.create() DOM layer (motion loop, code+state panels)
+  vendor/three.module.js    # locally-vendored 3D engine (no CDN)
+  two-pointer-sorted.html   # worked example A: 2D motion + code/state panel (the skeleton)
+  recursion-subsets.html    # worked example B: animated call tree (the "complex flow" case)
   <slug>-<concept>.html     # future bespoke files the coach authors on demand
 
-src/server/app.js      # adds express.static(PUBLIC_DIR) so /viz/* resolves
-src/config.js          # adds PUBLIC_DIR
+src/server/app.js           # adds express.static(PUBLIC_DIR) so /viz/* resolves
+src/config.js               # adds PUBLIC_DIR
 ```
 
-Data flow: coach writes `public/viz/<name>.html` → server serves it at `/viz/<name>.html` →
-coach shares the URL → user opens it in the browser and uses play/step/reset to watch the flow.
+Data flow: coach writes `public/viz/<name>.html` → server serves it (and the kit + vendored 3D)
+under `/viz/...` → coach shares the URL → user opens it and uses play/step/scrub to watch the
+flow, reading the synced code + variables alongside the motion.
 
 ## The kit — `public/viz/viz-kit.js`
 
-### Pure stepper state machine (unit-testable, no DOM)
+Two pure cores (unit-testable, no DOM) plus a thin DOM/motion layer. The pure cores mirror the
+style of `src/sr/scheduler.js`.
 
-Factored like `src/sr/scheduler.js` so the logic is testable without a browser. A factory
-returns a controller object holding the current frame index and play state, calling `onChange`
-whenever the index changes.
+### Pure core 1 — stepper state machine (keyframes)
 
 ```js
 // createStepper({ frameCount, onChange }) -> controller
-//   controller.index            // current frame, 0..frameCount-1
-//   controller.isPlaying        // boolean
-//   controller.next()           // advance, clamp at frameCount-1 (no wrap)
-//   controller.prev()           // retreat, clamp at 0
-//   controller.seek(i)          // jump to clamped i
-//   controller.reset()          // index -> 0, stop playing
-//   controller.tick()           // advance one frame; auto-stops playing at the last frame
-//   controller.toggle()         // flip isPlaying; if starting at the last frame, reset to 0 first
+//   controller.index        // current keyframe, 0..frameCount-1
+//   controller.isPlaying     // boolean
+//   controller.next()        // advance, clamp at frameCount-1 (no wrap)
+//   controller.prev()        // retreat, clamp at 0
+//   controller.seek(i)       // jump to clamped i
+//   controller.reset()       // index -> 0, stop playing
+//   controller.tick()        // advance one keyframe; auto-stops playing at the last frame
+//   controller.toggle()      // flip isPlaying; if starting at the last frame, reset to 0 first
 ```
 
-Semantics (these are what the tests pin down):
-- `frameCount` is the number of frames; valid indices are `0 .. frameCount-1`.
-- `next()` past the last frame is a no-op (clamps, does not wrap). `prev()` below 0 clamps to 0.
-- `seek(i)` clamps `i` into range.
-- `onChange(index)` fires on every actual index change (not on no-op clamps that don't move).
-- Autoplay is driven by the host (the DOM layer supplies a timer), but the *advance* decision
-  lives in the stepper: a `tick()` method advances one frame and automatically stops playing
-  when it reaches the last frame, so playback halts at the end rather than looping. `toggle()`
-  flips `isPlaying`; starting autoplay at the last frame first resets to 0 (replay).
+Semantics the tests pin down:
+- Valid indices are `0 .. frameCount-1`. `next()`/`prev()` clamp (no wrap); `seek(i)` clamps.
+- `onChange(index)` fires only on a real index change (no-op clamps that don't move don't fire).
+- `tick()` advances one keyframe and auto-stops playing at the last; `toggle()` flips
+  `isPlaying`, and starting playback while already at the last keyframe resets to 0 first (replay).
 
-> Keeping `tick`/`toggle`/clamping in the pure factory (rather than buried in DOM event
-> handlers) is what makes the behavior testable and keeps the DOM layer thin.
+### Pure core 2 — motion timeline / easing
 
-### DOM layer — `Viz.create(opts)`
+```js
+// easeInOutCubic(t) -> number   // t in [0,1], clamped
+// sampleTimeline({ elapsed, duration }) -> { t, done }
+//   t    = eased progress in [0,1] of the current transition
+//   done = true once elapsed >= duration
+// lerp(a, b, t) -> number       // linear interpolate (used by bespoke render for positions)
+```
 
-A thin wrapper that renders the control bar and wires it to a stepper.
+This is what makes motion smooth and testable: given the elapsed ms within a keyframe transition
+and the transition `duration`, it returns the eased `t` the renderer should draw at. The bespoke
+`render(index, t)` uses `t` (and `lerp`) to interpolate positions between keyframe `index-1` and
+`index` (or to animate the entrance of keyframe `index`). Discrete renders pass `t = 1`.
+
+### DOM / motion layer — `Viz.create(opts)`
 
 ```js
 Viz.create({
-  mount,        // HTMLElement that receives the control bar
-  frameCount,   // integer number of frames
-  render,       // (index) => void, called on every frame change AND once on init
-  speed = 700,  // autoplay interval in ms
-}) // -> the stepper controller (so callers can drive it programmatically/tests)
+  mount,            // HTMLElement that receives the control bar
+  frameCount,       // integer number of keyframes
+  render,           // (index, t) => void; called every animation frame during a transition
+                    //   and once on init at (0, 1)
+  code,             // optional: { source: string, lineForFrame: (i)=>number|number[] }
+  state,            // optional: (i) => Array<[label, value]>  rows for the variable panel
+  duration = 600,   // ms per keyframe transition
+  three = false,    // if true, expose a Three.js scene helper to render (advanced/3D files)
+}) // -> the stepper controller (so callers/tests can drive it programmatically)
 ```
 
 Behavior:
-- Renders a control bar (class `viz-controls`) with: reset (⏮), prev (◀), play/pause toggle
-  (▶ / ⏸), next (▶▶), a frame counter (`<current+1> / <frameCount>`), and a speed control.
-- Calls `render(index)` once immediately (frame 0) and again on every index change.
-- Play uses `setInterval(speed)` calling `controller.tick()`; the interval is cleared when
-  autoplay stops (either user pause or auto-stop at the last frame).
-- Keyboard: `ArrowRight` = next, `ArrowLeft` = prev, `Space` = toggle play/pause.
-- Global is exposed as `window.Viz` for plain-script bespoke files; also exported as an ES
-  module named export `Viz` (and `createStepper`) so tests can import it.
+- Renders a control bar (`.viz-controls`): reset (⏮), prev (◀), play/pause (▶ / ⏸), next (▶▶),
+  a keyframe counter (`<index+1> / <frameCount>`), a scrubber, and a speed control.
+- Drives motion with a `requestAnimationFrame` loop: on a keyframe change it animates `t` from
+  0→1 over `duration` using `sampleTimeline` + easing, calling `render(index, t)` each frame; in
+  play mode it chains into the next keyframe via `controller.tick()` until the end.
+- If `code` is supplied, renders a source panel and highlights `lineForFrame(index)` in sync.
+- If `state` is supplied, renders a variable table updated per keyframe.
+- Keyboard: `ArrowRight`/`ArrowLeft` step, `Space` toggles play/pause.
+- Exposed both as `window.Viz` (for convenience) and as ES-module named exports
+  (`Viz`, `createStepper`, `sampleTimeline`, `easeInOutCubic`, `lerp`) so tests can import them.
 
 ## The kit — `public/viz/viz-kit.css`
 
-A compact class set that covers every structure the parent spec lists, plus the controls:
+A rich, readable theme (dark default, monospace numerals, GPU-friendly transforms for motion).
+Class set covers every structure the parent spec lists, plus the panels:
 
-- Arrays & DP grids: `.viz-stage`, `.viz-row`, `.viz-grid`, `.viz-cell`, and state modifiers
-  `.viz-cell--active`, `.viz-cell--match`, `.viz-cell--done`.
-- Pointers: `.viz-pointer` (a labeled marker that sits under/over a cell).
-- Trees & graphs: `.viz-node`, `.viz-node--active`, `.viz-edge`.
-- Recursion: `.viz-stack`, `.viz-frame`, `.viz-frame--active`.
-- Chrome: `.viz-controls`, `.viz-note` (a caption line explaining the current step).
+- Layout: `.viz-app` (code | stage split), `.viz-stage`, `.viz-code`, `.viz-state`, `.viz-note`.
+- Arrays & DP grids: `.viz-row`, `.viz-grid`, `.viz-cell` + `--active` / `--match` / `--done`.
+- Pointers: `.viz-pointer` (labeled marker; positioned via transform for smooth glide).
+- Trees / graphs / recursion: `.viz-node` + `--active`, `.viz-edge`, `.viz-tree`, `.viz-stack`,
+  `.viz-frame` + `--active`.
+- Code panel: `.viz-code-line` + `.viz-code-line--current` (highlighted executing line).
+- Controls: `.viz-controls`, scrubber + speed.
 
-A clean default theme (readable colors, monospace numerals, subtle transitions on the cell
-state classes so changes animate). No external fonts or CDN assets — fully local.
+No external fonts or CDN assets — fully local.
 
 ## Bespoke concept files
 
-Each file is the coach's per-concept work. Canonical skeleton (also the worked example
-`two-pointer-sorted.html`):
+Each file is the coach's per-concept work. Canonical skeleton (worked example A,
+`two-pointer-sorted.html`): rich 2D motion + synced code/state.
 
 ```html
 <!doctype html>
@@ -130,93 +166,116 @@ Each file is the coach's per-concept work. Canonical skeleton (also the worked e
   <title>Two pointers on a sorted array</title>
   <link rel="stylesheet" href="/viz/viz-kit.css" />
 </head>
-<body>
-  <h1>Two pointers — find a pair summing to target</h1>
-  <div id="stage" class="viz-stage"></div>
-  <div id="note" class="viz-note"></div>
-  <div id="controls"></div>
+<body class="viz-app">
+  <pre id="code" class="viz-code"></pre>
+  <div class="viz-stagewrap">
+    <div id="stage" class="viz-stage"></div>
+    <table id="state" class="viz-state"></table>
+    <div id="note" class="viz-note"></div>
+    <div id="controls"></div>
+  </div>
 
   <script type="module">
-    import { Viz } from "/viz/viz-kit.js";
+    import { Viz, lerp } from "/viz/viz-kit.js";
 
-    const data = [1, 3, 4, 6, 8, 11];
-    const target = 10;
-    // Precompute frames: each frame = { lo, hi, sum, status, note }
-    const frames = buildFrames(data, target);
+    const data = [1, 3, 4, 6, 8, 11], target = 10;
+    const keyframes = buildKeyframes(data, target); // [{lo,hi,sum,status,line,vars,note}, ...]
 
-    function render(i) {
-      const f = frames[i];
-      // draw cells, mark f.lo/f.hi as active, f.match when found, update #note
+    function render(i, t) {
+      const prev = keyframes[Math.max(0, i - 1)], f = keyframes[i];
+      // draw cells; glide the lo/hi pointer markers from prev->f using lerp(...,t);
+      // apply --active/--match classes; update #note
     }
 
-    Viz.create({ mount: document.getElementById("controls"), frameCount: frames.length, render });
+    Viz.create({
+      mount: document.getElementById("controls"),
+      frameCount: keyframes.length,
+      render,
+      code: { source: SOURCE, lineForFrame: (i) => keyframes[i].line },
+      state: (i) => Object.entries(keyframes[i].vars),
+    });
 
-    function buildFrames(arr, t) { /* ... bespoke logic ... */ }
+    const SOURCE = `lo, hi = 0, len(a)-1\nwhile lo < hi:\n  s = a[lo] + a[hi]\n  if s == target: return [lo, hi]\n  elif s < target: lo += 1\n  else: hi -= 1`;
+    function buildKeyframes(a, t) { /* bespoke logic produces the keyframe list */ }
   </script>
 </body>
 </html>
 ```
 
-The logic (`buildFrames`, `render`) is fully bespoke; only the controls, the stepper, and the
-CSS classes come from the kit.
+Worked example B (`recursion-subsets.html`) demonstrates the **complex-flow** case the user
+cares about most: an animated recursion **call tree** for generating subsets/backtracking —
+nodes spawn as calls are made, the current path lights up, the tree unwinds on return, the code
+panel highlights the line at each call/return, and the state panel shows the current `path` and
+choices. This is the template for hard recursive problems; a 3D variant (`three: true`) can lay
+the call tree out in depth when breadth gets crowded.
+
+The logic (`buildKeyframes`, `render`, source listing) is fully bespoke; the motion engine,
+controls, code/state panels, and CSS come from the kit.
 
 ## Server change
 
-`src/server/app.js` mounts static serving of the public directory so the kit and concept files
-resolve under `/viz/...`:
+`src/server/app.js` mounts static serving of the public directory so the kit, the vendored 3D
+engine, and concept files resolve under `/viz/...`:
 
 ```js
-import path from "node:path";
-// inside createApp, after JSON + CORS middleware:
+// inside createApp, after JSON + CORS middleware, leaving /event and /health intact:
 app.use(express.static(PUBLIC_DIR)); // PUBLIC_DIR contains the `viz/` folder
 ```
 
-`PUBLIC_DIR` is added to `src/config.js` (`path.join(root, "public")`). `createApp` gains an
-optional parameter (or imports the config) so tests can point it at the real public dir.
-Static serving is added *after* the `/event` and `/health` routes are unaffected; a request for
-`/viz/viz-kit.js` returns the file with the correct `Content-Type`.
+`PUBLIC_DIR` is added to `src/config.js` (`path.join(root, "public")`). `createApp` takes it as
+a parameter (defaulting to the config value) so tests can point at the real public dir. A request
+for `/viz/viz-kit.js` returns the file with the correct `Content-Type`.
 
 ## Skill integration — `.claude/skills/leetcode-coaching/SKILL.md`
 
 Add a **Layer 3 — Visualize a flow** section:
 
-- **When:** the user is stuck *seeing how a mechanic works* (how a pointer scan progresses, how
-  a DP cell depends on its neighbors, how recursion unwinds) — not when they're stuck on the
-  answer.
-- **Anti-spoiler guardrail (critical):** never animate the optimal solution to the *current*
-  problem. Only visualize (a) a generic, problem-independent mechanic, or (b) the user's *own*
-  proposed approach — including watching their broken approach break (this dovetails with the
-  Idea-Engagement Loop's "stress-test by discovery"). Visualizing must serve understanding, not
-  hand over the answer.
+- **When:** the user is stuck *seeing how something works* — a pointer scan, how a DP cell
+  depends on its neighbors, how recursion spawns and unwinds, or how each line of an approach
+  mutates state. Also on direct request ("show me this animated", "visualize the optimal
+  solution").
+- **No content restriction:** visualize whatever helps, including the optimal solution to the
+  current problem if asked. The broader coaching judgment about leading-vs-showing still applies
+  to the *conversation*, but the visualizer tool itself is unrestricted.
 - **How:** write a bespoke file to `public/viz/<slug>-<concept>.html` using the kit
-  (`/viz/viz-kit.css`, `/viz/viz-kit.js`), then share `http://localhost:8765/viz/<slug>-<concept>`.
-  Reference the worked example as the skeleton to copy.
+  (`/viz/viz-kit.css`, `/viz/viz-kit.js`, and `/viz/vendor/three.module.js` for 3D), always
+  including the synced code + state panels so the user connects each line to its effect. Pick the
+  representation that fits the problem type (array row, DP grid, call tree, graph, stack; 2D by
+  default, 3D when depth clarifies). Then share `http://localhost:8765/viz/<slug>-<concept>`.
+  Copy from the worked examples (A for linear/2D, B for recursive/complex).
 
 ## Testing
 
-- `tests/viz/stepper.test.js` — the pure stepper: `next`/`prev`/`seek` clamping (no wrap),
-  `reset`, `toggle` flipping play state, `tick` advancing and auto-stopping at the last frame,
-  replay-from-end behavior, and that `onChange` fires only on real index changes. (Mirrors the
-  scheduler's pure-function test style.)
-- `tests/server.viz.test.js` — supertest against `createApp`: `GET /viz/viz-kit.js` → 200 with
-  a JavaScript content-type; `GET /viz/viz-kit.css` → 200 CSS; `GET /viz/two-pointer-sorted.html`
-  → 200 HTML; and that the existing `GET /health` still works (no regression from adding
-  static middleware).
-- The worked example `two-pointer-sorted.html` is verified visually (manual, or optional
-  Playwright snapshot) — animation correctness is subjective and not asserted in unit tests.
+- `tests/viz/stepper.test.js` — pure stepper: `next`/`prev`/`seek` clamping (no wrap), `reset`,
+  `toggle` play-state flips, `tick` advancing + auto-stop at last frame, replay-from-end, and
+  `onChange` firing only on real index changes.
+- `tests/viz/timeline.test.js` — pure motion core: `easeInOutCubic` endpoints/clamping/midpoint,
+  `lerp`, and `sampleTimeline` returning eased `t` and `done` correctly across elapsed/duration
+  boundaries (including `elapsed >= duration` → `{ t: 1, done: true }`).
+- `tests/server.viz.test.js` — supertest against `createApp`: `GET /viz/viz-kit.js` → 200 JS,
+  `GET /viz/viz-kit.css` → 200 CSS, `GET /viz/vendor/three.module.js` → 200 JS,
+  `GET /viz/two-pointer-sorted.html` → 200 HTML, and `GET /health` still works (no regression).
+- The worked example files and overall animation quality are verified visually (manual, or
+  optional Playwright) — motion/animation quality is subjective and not asserted in unit tests.
 
 ## Scope
 
 ### In scope (Stage 5)
-- `public/viz/viz-kit.js` (pure stepper + `Viz.create` DOM layer) and `public/viz/viz-kit.css`.
-- `express.static` serving of `public/` + `PUBLIC_DIR` config.
-- One worked example bespoke file (`two-pointer-sorted.html`) as the canonical skeleton.
-- `SKILL.md` "Layer 3 — Visualize a flow" section with the anti-spoiler guardrail.
-- Tests for the stepper and for static serving.
+- `public/viz/viz-kit.js` (pure stepper + pure timeline/easing cores + `Viz.create` motion/DOM
+  layer with synced code + state panels) and `public/viz/viz-kit.css` (rich theme + primitives).
+- Locally-vendored `public/viz/vendor/three.module.js` and a 3D-capable path in the kit.
+- `express.static` serving of `public/` + `PUBLIC_DIR` config (parameterized into `createApp`).
+- Two worked examples: A (2D motion two-pointer + code/state) and B (animated recursion call
+  tree), as the canonical skeletons for linear vs. complex flows.
+- `SKILL.md` "Layer 3 — Visualize a flow" section (no content restriction; always include the
+  code/state panels; pick representation by problem type).
+- Tests for the stepper, the timeline core, and static serving.
 
 ### Out of scope (v2+)
-- A library of many prebuilt animations (the rejected template approach).
+- A library of many prebuilt animations (the rejected template approach) — the kit + examples
+  are the foundation; concept files are authored on demand.
 - A `coach viz` CLI command (the coach writes files directly).
 - Recording/exporting animations (GIF/video) or screenshot capture.
 - Embedding the visualizer in the (future) injected sidebar UI.
-- Auto-generating animations from the user's actual submitted code.
+- Auto-generating animations from the user's actual submitted code (the coach hand-authors
+  keyframes + source listing per concept for now).
