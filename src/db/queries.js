@@ -70,3 +70,31 @@ export function setMastery(db, name, level) {
 export function listMastery(db) {
   return db.prepare("SELECT * FROM patterns ORDER BY name").all();
 }
+
+export function getReview(db, problemId) {
+  return db.prepare("SELECT * FROM review_queue WHERE problem_id = ?").get(problemId);
+}
+
+export function upsertReview(db, { problemId, dueDate, interval, ease, reps }) {
+  db.prepare(
+    `INSERT INTO review_queue (problem_id, due_date, interval, ease, reps)
+     VALUES (@problemId, @dueDate, @interval, @ease, @reps)
+     ON CONFLICT(problem_id) DO UPDATE SET
+       due_date = excluded.due_date,
+       interval = excluded.interval,
+       ease = excluded.ease,
+       reps = excluded.reps`
+  ).run({ problemId, dueDate, interval, ease, reps });
+}
+
+export function listDueReviews(db, asOfDate) {
+  return db
+    .prepare(
+      `SELECT r.*, p.slug, p.title, p.difficulty
+       FROM review_queue r
+       JOIN problems p ON p.id = r.problem_id
+       WHERE r.due_date <= ?
+       ORDER BY r.due_date ASC`
+    )
+    .all(asOfDate);
+}
