@@ -28,3 +28,18 @@ export function createStepper({ frameCount, onChange = () => {} }) {
     },
   };
 }
+
+export function easeInOutCubic(t) {
+  t = Math.max(0, Math.min(1, t));
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+export function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+export function sampleTimeline({ elapsed, duration }) {
+  if (duration <= 0) return { t: 1, done: true };
+  const raw = Math.max(0, Math.min(1, elapsed / duration));
+  return { t: easeInOutCubic(raw), done: elapsed >= duration };
+}
