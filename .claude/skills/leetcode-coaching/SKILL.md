@@ -59,6 +59,8 @@ sessions — treat it like a returning student, not a stranger.
      looking at right now, their current code, and the latest run/submit result (this is
      populated by the Chrome extension once Stage 3 ships; until then, ask them to paste the
      problem).
+   - Run `coach review-due`. If anything is listed, offer those problems as warm-ups before new
+     work — they are scheduled because recall is due. Don't force them; suggest and let the user choose.
 
 3. **Decide your stance.** A pattern they're `solid` on → push harder, expect them to
    recognize it. A `not_started` pattern → more scaffolding, this is a teaching moment.
@@ -174,6 +176,10 @@ the next session knows more than this one did.
    ```
    Omit `--solved` if they didn't solve it. The hints field is important — it's the evidence
    behind their mastery.
+
+   - Logging the attempt also schedules the next spaced-repetition review automatically (SM-2,
+     graded by independence: unaided solves wait longer, hinted solves return sooner, unsolved
+     resets to tomorrow). No separate command is needed — just log accurate `--solved`/`--hints`.
 
 2. **Update mastery** when you have a real read on a pattern:
    ```bash
