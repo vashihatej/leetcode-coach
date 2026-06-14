@@ -7,6 +7,7 @@ import {
   cmdMastery,
   cmdSetMastery,
   cmdStatus,
+  cmdReviewDue,
 } from "./commands.js";
 
 const db = openDb(DB_PATH);
@@ -38,5 +39,10 @@ program
   .requiredOption("--pattern <name>")
   .requiredOption("--level <level>", "not_started | shaky | solid")
   .action((opts) => console.log(cmdSetMastery(db, opts)));
+
+program
+  .command("review-due")
+  .description("list problems due for spaced-repetition review")
+  .action(() => console.log(cmdReviewDue(db)));
 
 program.parse();

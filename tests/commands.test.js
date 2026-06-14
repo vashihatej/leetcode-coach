@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { openDb } from "../src/db/index.js";
-import { upsertProblem } from "../src/db/queries.js";
+import { upsertProblem, upsertReview } from "../src/db/queries.js";
 import {
   cmdLogAttempt,
   cmdMastery,
   cmdSetMastery,
+  cmdReviewDue,
 } from "../src/cli/commands.js";
 
 describe("cli commands", () => {
@@ -31,5 +32,27 @@ describe("cli commands", () => {
     const out = cmdMastery(db);
     expect(out).toContain("sliding window");
     expect(out).toContain("solid");
+  });
+
+  it("cmdLogAttempt schedules a review and reports the next due date", () => {
+    const db = openDb(":memory:");
+    upsertProblem(db, { slug: "two-sum", title: "Two Sum" });
+    const out = cmdLogAttempt(db, { slug: "two-sum", solved: true, result: "optimal" });
+    expect(out).toContain("next review:");
+    const row = db.prepare("SELECT * FROM review_queue WHERE problem_id = 1").get();
+    expect(row).toBeTruthy();
+    expect(row.reps).toBe(1);
+    expect(row.interval).toBe(1);
+  });
+
+  it("cmdReviewDue lists due problems and reports empty state", () => {
+    const db = openDb(":memory:");
+    expect(cmdReviewDue(db)).toContain("nothing due");
+
+    const pid = upsertProblem(db, { slug: "two-sum", title: "Two Sum", difficulty: "Easy" });
+    upsertReview(db, { problemId: pid, dueDate: "2000-01-01", interval: 1, ease: 2.5, reps: 1 });
+    const out = cmdReviewDue(db);
+    expect(out).toContain("two-sum");
+    expect(out).toContain("Easy");
   });
 });
