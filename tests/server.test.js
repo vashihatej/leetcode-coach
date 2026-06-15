@@ -21,6 +21,9 @@ describe("POST /event", () => {
         title: "Two Sum",
         difficulty: "Easy",
         topicTags: ["Array"],
+        description: "Given an array...",
+        examples: ["Input: [2,7], target = 9"],
+        constraints: ["2 <= nums.length <= 10^4"],
         url: "https://leetcode.com/problems/two-sum/",
         language: "python3",
         code: "print(1)",
@@ -39,7 +42,10 @@ describe("POST /event", () => {
 
     const row = db.prepare("SELECT * FROM problems WHERE slug = ?").get("two-sum");
     expect(row.title).toBe("Two Sum");
-    expect(fs.readFileSync(tmp, "utf8")).toContain("# Two Sum");
+    expect(row.description).toBe("Given an array...");
+    const session = fs.readFileSync(tmp, "utf8");
+    expect(session).toContain("# Two Sum");
+    expect(session).toContain("2 <= nums.length <= 10^4");
   });
 
   it("rejects an event with no slug", async () => {

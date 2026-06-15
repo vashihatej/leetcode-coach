@@ -54,4 +54,43 @@ describe("Viz.create", () => {
     expect(document.getElementById("note").textContent).toBe("note1");
     expect(document.querySelector(".viz-state-val").textContent).toBe("1");
   });
+
+  it("supports multiple highlighted lines and keyboard navigation", () => {
+    const render = vi.fn();
+    const stepper = Viz.create({
+      mount: document.getElementById("controls"),
+      frameCount: 3,
+      render,
+      codeEl: document.getElementById("code"),
+      code: { source: "a\nb\nc", lineForFrame: (i) => (i === 1 ? [0, 1] : i) },
+    });
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    expect(stepper.index).toBe(1);
+    const lines = document.querySelectorAll(".viz-code-line");
+    expect(lines[0].classList.contains("viz-code-line--current")).toBe(true);
+    expect(lines[1].classList.contains("viz-code-line--current")).toBe(true);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }));
+    expect(stepper.index).toBe(0);
+    stepper.destroy();
+  });
+
+  it("exposes an optional Three.js module through threeReady", async () => {
+    const fakeThree = { Scene: class Scene {} };
+    const stepper = Viz.create({
+      controls: document.getElementById("controls"),
+      frameCount: 1,
+      render: vi.fn(),
+      three: fakeThree,
+    });
+    await expect(stepper.threeReady).resolves.toBe(fakeThree);
+    stepper.destroy();
+  });
+
+  it("reset repaints frame zero even when the index is already zero", () => {
+    const { render } = setup();
+    const reset = document.querySelector('button[aria-label="Reset visualization"]');
+    render.mockClear();
+    reset.click();
+    expect(render).toHaveBeenCalledWith(0, 1);
+  });
 });

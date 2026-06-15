@@ -8,9 +8,21 @@ const schema = fs.readFileSync(path.join(here, "schema.sql"), "utf8");
 
 function migrate(db) {
   // Pre-Stage-4 databases have review_queue without the reps column.
-  const cols = db.prepare("PRAGMA table_info(review_queue)").all();
-  if (!cols.some((c) => c.name === "reps")) {
+  const reviewCols = db.prepare("PRAGMA table_info(review_queue)").all();
+  if (!reviewCols.some((column) => column.name === "reps")) {
     db.exec("ALTER TABLE review_queue ADD COLUMN reps INTEGER NOT NULL DEFAULT 0");
+  }
+
+  const problemCols = db.prepare("PRAGMA table_info(problems)").all();
+  const additions = [
+    ["description", "TEXT"],
+    ["examples", "TEXT"],
+    ["constraints", "TEXT"],
+  ];
+  for (const [name, type] of additions) {
+    if (!problemCols.some((column) => column.name === name)) {
+      db.exec(`ALTER TABLE problems ADD COLUMN ${name} ${type}`);
+    }
   }
 }
 

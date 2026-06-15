@@ -7,6 +7,7 @@ import {
   getReview,
   upsertReview,
   listDueReviews,
+  recordPatternOutcome,
 } from "../db/queries.js";
 import { gradeAttempt, nextSchedule } from "../sr/scheduler.js";
 import fs from "node:fs";
@@ -22,6 +23,16 @@ function parseHints(hints) {
 function problemIdBySlug(db, slug) {
   const row = db.prepare("SELECT id FROM problems WHERE slug = ?").get(slug);
   return row ? row.id : null;
+}
+
+function parsePatterns(patterns) {
+  if (!patterns) return [];
+  return [...new Set(
+    String(patterns)
+      .split(",")
+      .map((pattern) => pattern.trim().toLowerCase())
+      .filter(Boolean)
+  )];
 }
 
 export function cmdLogAttempt(db, args) {
@@ -40,14 +51,27 @@ export function cmdLogAttempt(db, args) {
   };
   insertAttempt(db, attempt);
 
+  const patterns = parsePatterns(args.patterns);
+  for (const pattern of patterns) {
+    recordPatternOutcome(db, {
+      problemId,
+      name: pattern,
+      instinctFired: Boolean(args.instinctFired),
+    });
+  }
+
   const quality = gradeAttempt(attempt);
   const next = nextSchedule(getReview(db, problemId), quality, new Date());
   upsertReview(db, { problemId, ...next });
 
   const n = listAttempts(db, problemId).length;
+  const patternSummary = patterns.length
+    ? `\npatterns: ${patterns.join(", ")} (instinct ${args.instinctFired ? "fired" : "did not fire"})`
+    : "";
   return (
     `logged attempt for ${slug} (total attempts: ${n})\n` +
-    `next review: ${next.dueDate} (${next.interval} days)`
+    `next review: ${next.dueDate} (${next.interval} days)` +
+    patternSummary
   );
 }
 

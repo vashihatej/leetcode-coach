@@ -8,9 +8,16 @@ export function createApp(db, sessionPath, publicDir = PUBLIC_DIR) {
   app.use(express.json({ limit: "1mb" }));
 
   app.use((req, res, next) => {
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("Access-Control-Allow-Headers", "Content-Type");
-    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    const origin = req.get("Origin");
+    const allowed =
+      origin === "https://leetcode.com" ||
+      (origin && origin.startsWith("chrome-extension://"));
+    if (allowed) {
+      res.set("Access-Control-Allow-Origin", origin);
+      res.set("Vary", "Origin");
+      res.set("Access-Control-Allow-Headers", "Content-Type");
+      res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    }
     if (req.method === "OPTIONS") return res.sendStatus(204);
     next();
   });

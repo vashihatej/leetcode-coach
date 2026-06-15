@@ -45,6 +45,27 @@ describe("cli commands", () => {
     expect(row.interval).toBe(1);
   });
 
+  it("cmdLogAttempt records pattern linkage and whether instinct fired", () => {
+    const db = openDb(":memory:");
+    const problemId = upsertProblem(db, { slug: "two-sum", title: "Two Sum" });
+    const out = cmdLogAttempt(db, {
+      slug: "two-sum",
+      solved: true,
+      result: "optimal",
+      patterns: "Hashing, Array",
+      instinctFired: true,
+    });
+    expect(out).toContain("patterns: hashing, array (instinct fired)");
+    const patterns = db.prepare("SELECT * FROM patterns ORDER BY name").all();
+    expect(patterns.map((row) => row.name)).toEqual(["array", "hashing"]);
+    expect(patterns.every((row) => row.times_seen === 1)).toBe(true);
+    expect(patterns.every((row) => row.times_instinct_fired === 1)).toBe(true);
+    expect(
+      db.prepare("SELECT COUNT(*) count FROM pattern_problems WHERE problem_id = ?").get(problemId)
+        .count
+    ).toBe(2);
+  });
+
   it("cmdReviewDue lists due problems and reports empty state", () => {
     const db = openDb(":memory:");
     expect(cmdReviewDue(db)).toContain("nothing due");

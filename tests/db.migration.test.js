@@ -14,6 +14,12 @@ describe("review_queue reps migration", () => {
     expect(Number(reps.dflt_value)).toBe(0);
   });
 
+  it("a fresh db stores full problem context", () => {
+    const db = openDb(":memory:");
+    const cols = db.prepare("PRAGMA table_info(problems)").all().map((column) => column.name);
+    expect(cols).toEqual(expect.arrayContaining(["description", "examples", "constraints"]));
+  });
+
   it("adds reps to a legacy review_queue that lacks it", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "coach-mig-"));
     const dbPath = path.join(dir, "coach.db");
@@ -38,6 +44,10 @@ describe("review_queue reps migration", () => {
         expect(cols.some((c) => c.name === "reps")).toBe(true);
         const row = db.prepare("SELECT reps FROM review_queue WHERE problem_id = 1").get();
         expect(row.reps).toBe(0);
+        const problemCols = db.prepare("PRAGMA table_info(problems)").all();
+        expect(problemCols.map((column) => column.name)).toEqual(
+          expect.arrayContaining(["description", "examples", "constraints"])
+        );
       } finally {
         db.close();
       }

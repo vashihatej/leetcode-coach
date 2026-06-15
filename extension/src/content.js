@@ -2,57 +2,38 @@
 (function () {
   const SERVER = "http://localhost:8765/event";
   const SOURCE = "coach-bridge";
+  const runtime = globalThis.LeetCodeCoachContentRuntime;
 
   let latestCode = null;
   let latestLanguage = null;
   let latestResult = null;
+  let currentSlug = runtime.parseSlug(location.pathname);
 
-  function parseSlug(pathname) {
-    const m = /\/problems\/([^/]+)/.exec(pathname || "");
-    return m ? m[1] : null;
+  function readProblem() {
+    return runtime.buildProblemPayload({
+      pathname: location.pathname,
+      documentTitle: document.title,
+      doc: document,
+    });
   }
-  function parseTitle(t) {
-    if (!t) return null;
-    return t.replace(/\s*-\s*LeetCode.*$/i, "").trim() || null;
-  }
-  function parseDifficulty() {
-    const el = document.querySelector('[class*="text-difficulty-"]');
-    if (!el) return null;
-    const m = /text-difficulty-(easy|medium|hard)/.exec(el.className);
-    return m ? m[1][0].toUpperCase() + m[1].slice(1) : null;
-  }
+
   function buildEvent() {
-    return {
-      slug: parseSlug(location.pathname),
-      title: parseTitle(document.title),
-      difficulty: parseDifficulty(),
+    return runtime.buildEvent({
+      problem: readProblem(),
       url: location.href,
       code: latestCode,
       language: latestLanguage,
       lastResult: latestResult,
-    };
+    });
   }
 
   async function send() {
     const event = buildEvent();
     if (!event.slug) return;
-    try {
-      await fetch(SERVER, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(event),
-      });
-    } catch {}
+    await runtime.postEvent(fetch, SERVER, event);
   }
 
-  function debounce(fn, ms) {
-    let t = null;
-    return function () {
-      if (t) clearTimeout(t);
-      t = setTimeout(() => { t = null; fn(); }, ms);
-    };
-  }
-  const debouncedSend = debounce(send, 800);
+  const debouncedSend = runtime.debounce(send, 800);
 
   window.addEventListener("message", (e) => {
     if (e.source !== window) return;
@@ -67,6 +48,18 @@
       send(); // results are important — send immediately
     }
   });
+
+  // LeetCode navigates between problems without reloading the content script.
+  setInterval(() => {
+    const slug = runtime.parseSlug(location.pathname);
+    if (slug && slug !== currentSlug) {
+      currentSlug = slug;
+      latestCode = null;
+      latestLanguage = null;
+      latestResult = null;
+      send();
+    }
+  }, 1000);
 
   // Initial problem push so session.md reflects the page even before typing.
   send();

@@ -25,11 +25,13 @@
 extension/
   manifest.json            # MV3 manifest: two content scripts (MAIN + ISOLATED), host perms
   src/
-    scrape.js              # PURE: parseSlug/parseTitle/parseDifficulty/parseDescription/buildProblemPayload
-    verdict.js             # PURE: parseVerdict(json), shouldCaptureUrl(url)
-    editor.js              # PURE: readEditorCode(monaco)
-    debounce.js            # PURE: debounce(fn, ms)
-    event.js               # PURE: buildEvent(parts), postEvent(fetchFn, url, payload)
+    content-runtime.js     # shared classic runtime: scrape/build/post/debounce
+    bridge-runtime.js      # shared classic runtime: editor/verdict parsing
+    scrape.js              # ESM re-exports for tests
+    verdict.js             # ESM re-exports for tests
+    editor.js              # ESM re-exports for tests
+    debounce.js            # ESM re-export for tests
+    event.js               # ESM re-exports for tests
     page-bridge.js         # MAIN world entry: monaco read + fetch/XHR patch -> window.postMessage
     content.js             # ISOLATED world entry: DOM scrape + message listen + debounce + POST
 tests/
@@ -42,7 +44,9 @@ tests/
     cors.test.js           # server CORS for the extension's cross-origin POST
 ```
 
-The pure modules (`scrape`, `verdict`, `editor`, `debounce`, `event`) hold all logic and are fully tested. `page-bridge.js` and `content.js` only import those modules and wire them to browser APIs, so they stay small and are validated by the manual end-to-end task.
+The shared classic-script runtimes hold the logic used by the shipped content scripts. The ESM
+helper files re-export those same functions for unit tests, preventing tested helpers from
+drifting away from production behavior.
 
 **Event payload shape (the contract every module agrees on):**
 ```js
@@ -50,6 +54,10 @@ The pure modules (`scrape`, `verdict`, `editor`, `debounce`, `event`) hold all l
   slug: string,            // required by server
   title: string | null,
   difficulty: string | null,   // "Easy" | "Medium" | "Hard"
+  description: string | null,
+  examples: string[],
+  constraints: string[],
+  topicTags: string[],
   url: string,
   code: string | null,
   language: string | null,     // e.g. "cpp", "python3"

@@ -4,7 +4,10 @@ CREATE TABLE IF NOT EXISTS problems (
   title TEXT,
   difficulty TEXT,
   topic_tags TEXT,
-  url TEXT
+  url TEXT,
+  description TEXT,
+  examples TEXT,
+  constraints TEXT
 );
 
 CREATE TABLE IF NOT EXISTS attempts (

@@ -122,9 +122,12 @@ Viz.create({
   code,             // optional: { source: string, lineForFrame: (i)=>number|number[] }
   state,            // optional: (i) => Array<[label, value]>  rows for the variable panel
   duration = 600,   // ms per keyframe transition
-  three = false,    // if true, expose a Three.js scene helper to render (advanced/3D files)
+  three = false,    // true loads vendored Three.js; an object uses that supplied module
 }) // -> the stepper controller (so callers/tests can drive it programmatically)
 ```
+
+The returned controller exposes `threeReady`, a promise resolving to the Three.js module (or
+`null` when disabled), and `destroy()` for keyboard-listener and animation cleanup.
 
 Behavior:
 - Renders a control bar (`.viz-controls`): reset (⏮), prev (◀), play/pause (▶ / ⏸), next (▶▶),

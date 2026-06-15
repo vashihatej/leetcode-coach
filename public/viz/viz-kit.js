@@ -63,27 +63,46 @@ function createButton(label) {
   return b;
 }
 
+const keyboardHandlers = new WeakMap();
+
 const Viz = {
   create({
     controls,
+    mount,
     frameCount,
     render,
     codeEl,
     source,
     lineForFrame,
+    code,
     stateEl,
     stateRows,
+    state,
     noteEl,
     note,
     duration = 600,
+    three = false,
   }) {
+    const controlsEl = controls || mount;
+    if (!controlsEl) throw new Error("Viz.create requires controls or mount");
+    if (!Number.isInteger(frameCount) || frameCount < 1) {
+      throw new Error("Viz.create requires frameCount >= 1");
+    }
+
+    const codeSource = code?.source ?? source;
+    const codeLineForFrame = code?.lineForFrame ?? lineForFrame;
+    const rowsForFrame = state ?? stateRows;
     let codeLines = [];
-    if (codeEl && source != null) codeLines = renderCode(codeEl, source);
+    if (codeEl && codeSource != null) codeLines = renderCode(codeEl, codeSource);
 
     const resetBtn = createButton("⏮");
+    resetBtn.setAttribute("aria-label", "Reset visualization");
     const prevBtn = createButton("◀");
+    prevBtn.setAttribute("aria-label", "Previous frame");
     const playBtn = createButton("▶");
+    playBtn.setAttribute("aria-label", "Play visualization");
     const nextBtn = createButton("▶▶");
+    nextBtn.setAttribute("aria-label", "Next frame");
 
     const counter = document.createElement("span");
     counter.className = "viz-counter";
@@ -102,8 +121,9 @@ const Viz = {
     speed.max = "1600";
     speed.step = "100";
     speed.value = String(duration);
+    speed.setAttribute("aria-label", "Animation duration");
 
-    controls.append(resetBtn, prevBtn, playBtn, nextBtn, counter, scrubber, speed);
+    controlsEl.append(resetBtn, prevBtn, playBtn, nextBtn, counter, scrubber, speed);
 
     let rafId = null;
     let startTs = null;
@@ -112,14 +132,19 @@ const Viz = {
       counter.textContent = `${i + 1} / ${frameCount}`;
       scrubber.value = String(i);
       playBtn.textContent = stepper.isPlaying ? "⏸" : "▶";
-      if (codeLines.length && lineForFrame) {
-        const ln = lineForFrame(i);
+      playBtn.setAttribute(
+        "aria-label",
+        stepper.isPlaying ? "Pause visualization" : "Play visualization"
+      );
+      if (codeLines.length && codeLineForFrame) {
+        const activeLines = codeLineForFrame(i);
+        const lines = new Set(Array.isArray(activeLines) ? activeLines : [activeLines]);
         codeLines.forEach((el, idx) =>
-          el.classList.toggle("viz-code-line--current", idx === ln));
+          el.classList.toggle("viz-code-line--current", lines.has(idx)));
       }
-      if (stateEl && stateRows) {
+      if (stateEl && rowsForFrame) {
         stateEl.innerHTML = "";
-        for (const [k, v] of stateRows(i)) {
+        for (const [k, v] of rowsForFrame(i)) {
           const row = document.createElement("div");
           row.className = "viz-state-row";
           const key = document.createElement("span");
@@ -165,7 +190,11 @@ const Viz = {
       onChange: (i) => { animateTo(i); },
     });
 
-    resetBtn.addEventListener("click", () => stepper.reset());
+    resetBtn.addEventListener("click", () => {
+      stepper.reset();
+      paintPanels(stepper.index);
+      render(stepper.index, 1);
+    });
     prevBtn.addEventListener("click", () => stepper.prev());
     nextBtn.addEventListener("click", () => stepper.next());
     playBtn.addEventListener("click", () => {
@@ -174,6 +203,40 @@ const Viz = {
       if (stepper.isPlaying) animateTo(stepper.index);
     });
     scrubber.addEventListener("input", () => stepper.seek(Number(scrubber.value)));
+
+    const doc = controlsEl.ownerDocument;
+    const previousHandler = keyboardHandlers.get(doc);
+    if (previousHandler) doc.removeEventListener("keydown", previousHandler);
+    const keyHandler = (event) => {
+      const tag = event.target?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        stepper.next();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        stepper.prev();
+      } else if (event.code === "Space" || event.key === " ") {
+        event.preventDefault();
+        stepper.toggle();
+        paintPanels(stepper.index);
+        if (stepper.isPlaying) animateTo(stepper.index);
+      }
+    };
+    keyboardHandlers.set(doc, keyHandler);
+    doc.addEventListener("keydown", keyHandler);
+
+    const threeUrl = "/viz/vendor/three.module.js";
+    stepper.threeReady = three
+      ? three === true
+        ? import(/* @vite-ignore */ threeUrl)
+        : Promise.resolve(three)
+      : Promise.resolve(null);
+    stepper.destroy = () => {
+      if (rafId != null) cancelAnimationFrame(rafId);
+      doc.removeEventListener("keydown", keyHandler);
+      if (keyboardHandlers.get(doc) === keyHandler) keyboardHandlers.delete(doc);
+    };
 
     paintPanels(0);
     render(0, 1);

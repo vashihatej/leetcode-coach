@@ -2,43 +2,15 @@
 // Forwards { type: "coach:code" } and { type: "coach:result" } to the isolated content script.
 (function () {
   const SOURCE = "coach-bridge";
-
-  function readEditorCode() {
-    const monaco = window.monaco;
-    if (!monaco || !monaco.editor) return null;
-    const models = monaco.editor.getModels();
-    if (!models || models.length === 0) return null;
-    const m = models.find((x) => x.getLanguageId() !== "plaintext") || models[0];
-    if (!m) return null;
-    return { code: m.getValue(), language: m.getLanguageId() };
-  }
+  const runtime = globalThis.LeetCodeCoachBridgeRuntime;
 
   function postCode() {
-    const c = readEditorCode();
+    const c = runtime.readEditorCode(window.monaco);
     if (c) window.postMessage({ source: SOURCE, type: "coach:code", payload: c }, "*");
   }
 
-  function shouldCaptureUrl(url) {
-    // LeetCode polls /submissions/detail/<id>/check/ — newer flows insert a /v2/ segment.
-    return /\/submissions\/detail\/\d+\/(?:v\d+\/)?check\/?/.test(url || "");
-  }
-
-  function parseVerdict(json) {
-    if (!json || json.state !== "SUCCESS") return null;
-    return {
-      statusMsg: json.status_msg ?? null,
-      totalCorrect: json.total_correct ?? null,
-      totalTestcases: json.total_testcases ?? null,
-      runtime: json.status_runtime ?? null,
-      memory: json.status_memory ?? null,
-      error:
-        json.compile_error || json.full_compile_error ||
-        json.runtime_error || json.full_runtime_error || null,
-    };
-  }
-
   function emitVerdict(json) {
-    const v = parseVerdict(json);
+    const v = runtime.parseVerdict(json);
     if (v) window.postMessage({ source: SOURCE, type: "coach:result", payload: v }, "*");
   }
 
@@ -48,7 +20,7 @@
     const res = await origFetch.apply(this, args);
     try {
       const url = typeof args[0] === "string" ? args[0] : args[0]?.url;
-      if (shouldCaptureUrl(url)) {
+      if (runtime.shouldCaptureUrl(url)) {
         res.clone().json().then(emitVerdict).catch(() => {});
       }
     } catch {}
@@ -65,7 +37,9 @@
   XMLHttpRequest.prototype.send = function (...args) {
     this.addEventListener("load", () => {
       try {
-        if (shouldCaptureUrl(this.__coachUrl)) emitVerdict(JSON.parse(this.responseText));
+        if (runtime.shouldCaptureUrl(this.__coachUrl)) {
+          emitVerdict(JSON.parse(this.responseText));
+        }
       } catch {}
     });
     return origSend.apply(this, args);

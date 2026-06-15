@@ -4,16 +4,20 @@
   "version": "0.1.0",
   "description": "Streams your live LeetCode problem, code, and run/submit results to the local coach.",
   "host_permissions": ["http://localhost:8765/*"],
+  "action": {
+    "default_title": "LeetCode Coach",
+    "default_popup": "popup.html"
+  },
   "content_scripts": [
     {
       "matches": ["https://leetcode.com/problems/*"],
-      "js": ["src/page-bridge.js"],
+      "js": ["src/bridge-runtime.js", "src/page-bridge.js"],
       "world": "MAIN",
       "run_at": "document_idle"
     },
     {
       "matches": ["https://leetcode.com/problems/*"],
-      "js": ["src/content.js"],
+      "js": ["src/content-runtime.js", "src/content.js"],
       "world": "ISOLATED",
       "run_at": "document_idle"
     }

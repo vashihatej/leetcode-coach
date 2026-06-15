@@ -21,7 +21,18 @@ describe("manifest.json", () => {
     expect(allMatches.some((m) => m.includes("leetcode.com/problems/"))).toBe(true);
   });
 
+  it("loads tested shared runtimes before the shipped entry scripts", () => {
+    const main = manifest.content_scripts.find((script) => script.world === "MAIN");
+    const isolated = manifest.content_scripts.find((script) => script.world === "ISOLATED");
+    expect(main.js).toEqual(["src/bridge-runtime.js", "src/page-bridge.js"]);
+    expect(isolated.js).toEqual(["src/content-runtime.js", "src/content.js"]);
+  });
+
   it("has host permission for the local coach server", () => {
     expect(manifest.host_permissions.some((h) => h.includes("localhost:8765"))).toBe(true);
+  });
+
+  it("provides the planned connection-status popup", () => {
+    expect(manifest.action.default_popup).toBe("popup.html");
   });
 });

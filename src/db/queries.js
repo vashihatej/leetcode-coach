@@ -1,15 +1,40 @@
 export function upsertProblem(db, problem) {
-  const { slug, title, difficulty, topicTags, url } = problem;
-  const tags = JSON.stringify(topicTags ?? []);
+  const {
+    slug,
+    title = null,
+    difficulty = null,
+    topicTags = null,
+    url = null,
+    description = null,
+    examples = null,
+    constraints = null,
+  } = problem;
+  const tags = topicTags == null ? null : JSON.stringify(topicTags);
+  const exampleJson = examples == null ? null : JSON.stringify(examples);
+  const constraintJson = constraints == null ? null : JSON.stringify(constraints);
   db.prepare(
-    `INSERT INTO problems (slug, title, difficulty, topic_tags, url)
-     VALUES (@slug, @title, @difficulty, @tags, @url)
+    `INSERT INTO problems
+       (slug, title, difficulty, topic_tags, url, description, examples, constraints)
+     VALUES
+       (@slug, @title, @difficulty, @tags, @url, @description, @exampleJson, @constraintJson)
      ON CONFLICT(slug) DO UPDATE SET
-       title = excluded.title,
-       difficulty = excluded.difficulty,
-       topic_tags = excluded.topic_tags,
-       url = excluded.url`
-  ).run({ slug, title, difficulty, tags, url });
+       title = COALESCE(excluded.title, problems.title),
+       difficulty = COALESCE(excluded.difficulty, problems.difficulty),
+       topic_tags = COALESCE(excluded.topic_tags, problems.topic_tags),
+       url = COALESCE(excluded.url, problems.url),
+       description = COALESCE(excluded.description, problems.description),
+       examples = COALESCE(excluded.examples, problems.examples),
+       constraints = COALESCE(excluded.constraints, problems.constraints)`
+  ).run({
+    slug,
+    title,
+    difficulty,
+    tags,
+    url,
+    description,
+    exampleJson,
+    constraintJson,
+  });
   return db.prepare("SELECT id FROM problems WHERE slug = ?").get(slug).id;
 }
 
@@ -51,24 +76,63 @@ export function listAttempts(db, problemId) {
 const VALID_MASTERY = ["not_started", "shaky", "solid"];
 
 export function ensurePattern(db, name) {
+  const normalized = String(name || "").trim().toLowerCase();
+  if (!normalized) throw new Error("pattern name is required");
   db.prepare(
     "INSERT INTO patterns (name) VALUES (?) ON CONFLICT(name) DO NOTHING"
-  ).run(name);
-  return db.prepare("SELECT id FROM patterns WHERE name = ?").get(name).id;
+  ).run(normalized);
+  return db.prepare("SELECT id FROM patterns WHERE name = ?").get(normalized).id;
 }
 
 export function setMastery(db, name, level) {
   if (!VALID_MASTERY.includes(level)) {
     throw new Error(`invalid mastery level: ${level}`);
   }
-  ensurePattern(db, name);
+  const normalized = String(name || "").trim().toLowerCase();
+  ensurePattern(db, normalized);
   db.prepare(
     "UPDATE patterns SET mastery = ?, last_practiced = ? WHERE name = ?"
-  ).run(level, new Date().toISOString(), name);
+  ).run(level, new Date().toISOString(), normalized);
 }
 
 export function listMastery(db) {
   return db.prepare("SELECT * FROM patterns ORDER BY name").all();
+}
+
+export function recordPatternOutcome(db, { problemId, name, instinctFired = false }) {
+  const patternName = String(name || "").trim().toLowerCase();
+  if (!patternName) throw new Error("pattern name is required");
+  const patternId = ensurePattern(db, patternName);
+  const now = new Date().toISOString();
+
+  db.transaction(() => {
+    db.prepare(
+      `INSERT INTO pattern_problems (pattern_id, problem_id)
+       VALUES (?, ?)
+       ON CONFLICT(pattern_id, problem_id) DO NOTHING`
+    ).run(patternId, problemId);
+    db.prepare(
+      `UPDATE patterns
+       SET times_seen = times_seen + 1,
+           times_instinct_fired = times_instinct_fired + ?,
+           last_practiced = ?
+       WHERE id = ?`
+    ).run(instinctFired ? 1 : 0, now, patternId);
+  })();
+
+  return patternId;
+}
+
+export function listProblemPatterns(db, problemId) {
+  return db
+    .prepare(
+      `SELECT p.*
+       FROM patterns p
+       JOIN pattern_problems pp ON pp.pattern_id = p.id
+       WHERE pp.problem_id = ?
+       ORDER BY p.name`
+    )
+    .all(problemId);
 }
 
 export function getReview(db, problemId) {

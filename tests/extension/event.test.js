@@ -4,7 +4,15 @@ import { buildEvent, postEvent } from "../../extension/src/event.js";
 describe("buildEvent", () => {
   it("merges problem, code, and result into the server contract", () => {
     const event = buildEvent({
-      problem: { slug: "two-sum", title: "Two Sum", difficulty: "Easy", description: "d" },
+      problem: {
+        slug: "two-sum",
+        title: "Two Sum",
+        difficulty: "Easy",
+        description: "d",
+        examples: ["e"],
+        constraints: ["c"],
+        topicTags: ["Array"],
+      },
       url: "https://leetcode.com/problems/two-sum/",
       code: "class Solution {};",
       language: "cpp",
@@ -14,6 +22,10 @@ describe("buildEvent", () => {
       slug: "two-sum",
       title: "Two Sum",
       difficulty: "Easy",
+      description: "d",
+      examples: ["e"],
+      constraints: ["c"],
+      topicTags: ["Array"],
       url: "https://leetcode.com/problems/two-sum/",
       code: "class Solution {};",
       language: "cpp",
@@ -29,6 +41,9 @@ describe("buildEvent", () => {
     expect(event.code).toBe(null);
     expect(event.language).toBe(null);
     expect(event.lastResult).toBe(null);
+    expect(event.examples).toEqual([]);
+    expect(event.constraints).toEqual([]);
+    expect(event.topicTags).toEqual([]);
   });
 });
 

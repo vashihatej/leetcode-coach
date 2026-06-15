@@ -90,6 +90,29 @@ body.viz-app {
   border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 14px;
 }
 .viz-controls button:hover { background: #30363d; }
+.viz-controls button:focus-visible,
+.viz-controls input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .viz-counter { color: var(--muted); min-width: 60px; }
 .viz-scrubber { flex: 1; }
 .viz-speed { width: 120px; }
+
+@media (max-width: 760px) {
+  body.viz-app {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(180px, 35vh) 1fr auto auto;
+    height: auto;
+    min-height: 100vh;
+  }
+  .viz-code {
+    grid-row: 1;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .viz-stagewrap { grid-row: 2; min-height: 360px; }
+  .viz-state { grid-row: 3; grid-column: 1; }
+  .viz-controls { grid-row: 4; grid-column: 1; flex-wrap: wrap; }
+  .viz-scrubber { min-width: 180px; }
+}

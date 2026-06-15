@@ -25,6 +25,8 @@ program
   .option("--solved", "mark as solved", false)
   .option("--result <type>", "brute | optimal")
   .option("--hints <list>", "comma-separated rung numbers")
+  .option("--patterns <list>", "comma-separated algorithm patterns")
+  .option("--instinct-fired", "user recognized the recorded pattern before coaching", false)
   .option("--mistakes <text>")
   .option("--approach <text>")
   .action((opts) => console.log(cmdLogAttempt(db, opts)));

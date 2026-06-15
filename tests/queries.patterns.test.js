@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { openDb } from "../src/db/index.js";
-import { ensurePattern, setMastery, listMastery } from "../src/db/queries.js";
+import {
+  ensurePattern,
+  setMastery,
+  listMastery,
+  recordPatternOutcome,
+  listProblemPatterns,
+  upsertProblem,
+} from "../src/db/queries.js";
 
 describe("patterns", () => {
   it("creates a pattern with default mastery", () => {
@@ -27,5 +34,18 @@ describe("patterns", () => {
     const row = listMastery(db).find((p) => p.name === "dynamic programming");
     expect(row.mastery).toBe("shaky");
     expect(row.last_practiced).toBeTruthy();
+  });
+
+  it("links a problem and records exposure and instinct outcomes", () => {
+    const db = openDb(":memory:");
+    const problemId = upsertProblem(db, { slug: "two-sum", title: "Two Sum" });
+    recordPatternOutcome(db, { problemId, name: "Hashing", instinctFired: true });
+    recordPatternOutcome(db, { problemId, name: "hashing", instinctFired: false });
+
+    const pattern = listMastery(db).find((row) => row.name === "hashing");
+    expect(pattern.times_seen).toBe(2);
+    expect(pattern.times_instinct_fired).toBe(1);
+    expect(listProblemPatterns(db, problemId).map((row) => row.name)).toEqual(["hashing"]);
+    expect(db.prepare("SELECT COUNT(*) count FROM pattern_problems").get().count).toBe(1);
   });
 });

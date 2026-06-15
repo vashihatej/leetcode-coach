@@ -14,16 +14,31 @@ beforeEach(() => {
 });
 
 describe("CORS", () => {
-  it("answers a preflight OPTIONS on /event with permissive headers", async () => {
-    const res = await request(app).options("/event");
+  it("allows preflight requests from LeetCode", async () => {
+    const res = await request(app)
+      .options("/event")
+      .set("Origin", "https://leetcode.com");
     expect(res.status).toBe(204);
-    expect(res.headers["access-control-allow-origin"]).toBe("*");
+    expect(res.headers["access-control-allow-origin"]).toBe("https://leetcode.com");
     expect(res.headers["access-control-allow-methods"]).toContain("POST");
   });
 
-  it("includes the allow-origin header on a real POST", async () => {
-    const res = await request(app).post("/event").send({ slug: "two-sum" });
-    expect(res.headers["access-control-allow-origin"]).toBe("*");
+  it("allows extension origins on a real POST", async () => {
+    const res = await request(app)
+      .post("/event")
+      .set("Origin", "chrome-extension://abcdefghijklmnop")
+      .send({ slug: "two-sum" });
+    expect(res.headers["access-control-allow-origin"]).toBe(
+      "chrome-extension://abcdefghijklmnop"
+    );
     expect(res.body.ok).toBe(true);
+  });
+
+  it("does not grant CORS access to unrelated websites", async () => {
+    const res = await request(app)
+      .options("/event")
+      .set("Origin", "https://example.com");
+    expect(res.status).toBe(204);
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
   });
 });
