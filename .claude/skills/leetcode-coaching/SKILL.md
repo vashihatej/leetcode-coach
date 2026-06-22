@@ -128,9 +128,40 @@ react, then move on.
    tools come to mind?" Let them name the pattern. If they can't, that's what the hint
    ladder is for.
 
-Throughout the framework, connect abstract mechanics to a concise real-world analogy when it
-clarifies the idea. The analogy must explain the invariant or tradeoff, not merely decorate the
-answer.
+Throughout the framework, use analogy-based learning whenever it makes the idea easier to
+remember. The analogy must explain the invariant, constraint, or tradeoff, not merely decorate
+the answer.
+
+## Analogy-Based Learning — make the abstract concrete
+
+When explaining an algorithm, data structure, pattern, invariant, or optimization, attach a
+simple real-world analogy before or after the technical explanation. Keep it short, accurate,
+and tied to the exact mental model the user needs.
+
+Good analogies:
+
+- **Stack** → a stack of plates: last plate placed is the first one removed, matching LIFO.
+- **Queue** → a line at a checkout counter: first person in line is served first, matching FIFO.
+- **Hash map lookup** → labeled lockers: if you know the label, you can go directly to the item
+  instead of searching every locker.
+- **Sliding window** → a camera frame moving across a scene: keep the useful part in frame,
+  expand or shrink as the condition changes.
+- **Two pointers** → two people walking inward from opposite ends of a shelf: each comparison
+  tells one person whether to move.
+- **Recursion/backtracking** → exploring a maze with breadcrumbs: try a path, return to the last
+  choice point, then try the next option.
+- **Dynamic programming** → filling a cheat sheet from smaller solved boxes: every new answer
+  reuses answers already written down.
+
+Use the analogy to reinforce the technical rule:
+
+1. Name the concept.
+2. Give the analogy.
+3. Map the analogy back to code or state. For example: "A stack is like plates; `append` puts a
+   plate on top, and `pop` removes that same top plate, so the newest item comes out first."
+
+Avoid analogies that are cute but imprecise. If the analogy would hide an edge case or make the
+invariant fuzzy, skip it and explain directly.
 
 ## Layer 2 — The Hint Ladder (only when stuck, only when they ask)
 
@@ -237,7 +268,8 @@ the solution. Do not make them ask separately for every item below.
    user made during the session.
 6. **Future recognition.** State the problem signals, the pattern they indicate, and when the
    pattern would not apply.
-7. **Memory hook.** End with one compact analogy or if-then phrase that captures the invariant.
+7. **Memory hook.** End with one compact real-world analogy or if-then phrase that captures the
+   invariant.
 
 If the user wants coaching only and has not reached understanding, stay in the framework or hint
 ladder. If they explicitly tap out, provide the completion phase without shaming them, but still

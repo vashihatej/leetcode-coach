@@ -9,6 +9,8 @@ SQLite history and spaced repetition, and animated algorithm visualizations.
   verdict into `session.md`.
 - Coaches from your first instinct instead of jumping to the solution.
 - Uses a five-step framework: restate, examples and edges, brute force, bottleneck, pattern.
+- Explains algorithms and data structures with analogy-based learning, such as stacks as plates
+  or queues as checkout lines.
 - Escalates hints gradually and records which hints were needed.
 - Tracks pattern exposure, whether your instinct fired, mastery, attempts, and review dates.
 - Serves interactive visualizations with synchronized code and state panels.
@@ -46,7 +48,8 @@ this repository and ask to work through the problem currently open in LeetCode.
 The coach first asks what came to mind, classifies the idea as wrong, partially correct, or
 correct, and then guides the framework one step at a time. Once the approach is understood, or
 you explicitly ask to see it, the coach provides an implementation plan, Python solution,
-complexity, edge cases, common mistakes, recognition signals, and a memory hook.
+complexity, edge cases, common mistakes, recognition signals, analogy-based explanations, and a
+memory hook.
 
 ## CLI
 
