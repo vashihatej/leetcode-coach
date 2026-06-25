@@ -5,3 +5,4 @@ coach.db-wal
 session.md
 .env
 .DS_Store
+public/dashboard/
