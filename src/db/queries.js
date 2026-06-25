@@ -270,8 +270,9 @@ export function listProblemsByPattern(db, name) {
   return db.prepare(`
     SELECT
       prob.id, prob.slug, prob.title, prob.difficulty, prob.url,
-      (SELECT a.solved FROM attempts a WHERE a.problem_id = prob.id ORDER BY a.date DESC LIMIT 1) as last_solved,
-      (SELECT a.hints_used FROM attempts a WHERE a.problem_id = prob.id ORDER BY a.date DESC LIMIT 1) as last_hints_used,
+      (SELECT a.solved FROM attempts a WHERE a.problem_id = prob.id ORDER BY a.date DESC, a.id DESC LIMIT 1) as last_solved,
+      (SELECT a.result_type FROM attempts a WHERE a.problem_id = prob.id ORDER BY a.date DESC, a.id DESC LIMIT 1) as last_result_type,
+      (SELECT a.hints_used FROM attempts a WHERE a.problem_id = prob.id ORDER BY a.date DESC, a.id DESC LIMIT 1) as last_hints_used,
       (SELECT COUNT(*) FROM attempts a WHERE a.problem_id = prob.id) as attempt_count,
       r.ease,
       r.reps,
@@ -302,7 +303,7 @@ export function getActivityData(db, since) {
   return db.prepare(`
     SELECT date(date) as date, COUNT(*) as count
     FROM attempts
-    WHERE date >= ?
+    WHERE date(date) >= ?
     GROUP BY date(date)
     ORDER BY date ASC
   `).all(since);
@@ -317,7 +318,7 @@ export function listRecentAttempts(db, limit = 10) {
     FROM attempts a
     JOIN problems p ON p.id = a.problem_id
     LEFT JOIN review_queue r ON r.problem_id = a.problem_id
-    ORDER BY a.date DESC
+    ORDER BY a.date DESC, a.id DESC
     LIMIT ?
   `).all(limit);
 }
