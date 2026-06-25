@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/hooks/useactivity.ts","./src/hooks/usepatterns.ts","./src/hooks/useproblems.ts","./src/hooks/usereview.ts","./src/hooks/usestats.ts","./src/hooks/usewishlist.ts","./src/lib/api.ts","./src/lib/comfort.ts","./src/lib/types.ts"],"version":"5.9.3"}
