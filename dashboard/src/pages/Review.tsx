@@ -1,22 +1,13 @@
 import ReviewCard from '../components/review/ReviewCard';
 import { useReview } from '../hooks/useReview';
+import { classifyDueDate } from '../lib/dates';
 
 export default function Review() {
   const { data: items = [], isLoading } = useReview();
 
-  const overdue = items.filter(i => {
-    const today = new Date(); today.setHours(0,0,0,0);
-    return new Date(i.due_date + 'T00:00:00') < today;
-  });
-  const dueToday = items.filter(i => {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const due = new Date(i.due_date + 'T00:00:00');
-    return due.getTime() === today.getTime();
-  });
-  const upcoming = items.filter(i => {
-    const today = new Date(); today.setHours(0,0,0,0);
-    return new Date(i.due_date + 'T00:00:00') > today;
-  });
+  const overdue = items.filter(i => classifyDueDate(i.due_date) === 'overdue');
+  const dueToday = items.filter(i => classifyDueDate(i.due_date) === 'due-today');
+  const upcoming = items.filter(i => classifyDueDate(i.due_date) === 'upcoming');
 
   if (isLoading) {
     return <div className="p-6 text-gray-400 text-sm">Loading review queue…</div>;
@@ -36,7 +27,7 @@ export default function Review() {
         <h2 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3">
           Overdue ({overdue.length})
         </h2>
-        {overdue.length === 0 ? (
+        {overdue.length === 0 && items.length > 0 ? (
           <p className="text-sm text-gray-500 bg-gray-800/40 rounded-xl px-5 py-4">
             Nothing overdue — great work.
           </p>

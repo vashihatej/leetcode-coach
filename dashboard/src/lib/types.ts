@@ -59,6 +59,7 @@ export interface ActivityPoint {
 export interface Stats {
   total_problems: number;
   solved_problems: number;
+  attempts_today: number;
   due_today: number;
   pattern_count: number;
   streak: number;

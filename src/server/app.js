@@ -24,17 +24,7 @@ export function createApp(db, sessionPath, publicDir = PUBLIC_DIR) {
     next();
   });
 
-  app.use(express.static(publicDir));
-
   app.use('/api', createApiRouter(db));
-
-  app.get('/dashboard', (_req, res) => res.redirect('/dashboard/'));
-  app.use('/dashboard', (_req, res) => {
-    const idx = join(publicDir, 'dashboard', 'index.html');
-    res.sendFile(idx, err => {
-      if (err) res.status(404).send('Dashboard not built — run: cd dashboard && npm run build');
-    });
-  });
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
@@ -46,6 +36,16 @@ export function createApp(db, sessionPath, publicDir = PUBLIC_DIR) {
     upsertProblem(db, event);
     writeSession(sessionPath, event);
     res.json({ ok: true });
+  });
+
+  app.use(express.static(publicDir));
+
+  app.get('/dashboard', (_req, res) => res.redirect('/dashboard/'));
+  app.use('/dashboard', (_req, res) => {
+    const idx = join(publicDir, 'dashboard', 'index.html');
+    res.sendFile(idx, err => {
+      if (err) res.status(404).send('Dashboard not built — run: cd dashboard && npm run build');
+    });
   });
 
   return app;

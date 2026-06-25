@@ -3,7 +3,7 @@ import request from 'supertest';
 import Database from 'better-sqlite3';
 import { readFileSync } from 'node:fs';
 import { createApp } from '../src/server/app.js';
-import { upsertProblem, insertAttempt, ensurePattern, recordPatternOutcome } from '../src/db/queries.js';
+import { upsertProblem, insertAttempt, recordPatternOutcome } from '../src/db/queries.js';
 
 function openMemoryDb() {
   const db = new Database(':memory:');
@@ -24,6 +24,7 @@ describe('API routes', () => {
     expect(res.body).toMatchObject({
       total_problems: expect.any(Number),
       solved_problems: expect.any(Number),
+      attempts_today: expect.any(Number),
       due_today: expect.any(Number),
       pattern_count: expect.any(Number),
       streak: expect.any(Number),
@@ -47,10 +48,18 @@ describe('API routes', () => {
     expect(res.body[0].solved).toBe(1);
   });
 
-  it('GET /api/patterns returns array', async () => {
+  it('GET /api/patterns returns array with correct shape', async () => {
+    const pid = upsertProblem(db, { slug: 'two-sum', title: 'Two Sum' });
+    recordPatternOutcome(db, { problemId: pid, name: 'hash map', instinctFired: true });
     const res = await request(app).get('/api/patterns');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({
+      name: 'hash map',
+      problem_count: 1,
+      instinct_rate: expect.any(Number),
+    });
   });
 
   it('GET /api/patterns/:name/problems returns problems for pattern', async () => {

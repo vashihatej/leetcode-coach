@@ -1,5 +1,6 @@
 import { ExternalLink } from 'lucide-react';
 import type { ReviewItem } from '../../lib/types';
+import { classifyDueDate } from '../../lib/dates';
 
 const DIFF: Record<string, string> = {
   Easy: 'text-green-400',
@@ -13,20 +14,20 @@ function easeBarWidth(ease: number): number {
 }
 
 function urgency(dueDateStr: string): { label: string; ring: string; labelColor: string } {
+  const cls = classifyDueDate(dueDateStr);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const due = new Date(dueDateStr + 'T00:00:00');
-  const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000);
+  const diffDays = Math.abs(Math.round((due.getTime() - today.getTime()) / 86400000));
 
-  if (diffDays < 0) {
-    const n = Math.abs(diffDays);
+  if (cls === 'overdue') {
     return {
-      label: `${n} day${n !== 1 ? 's' : ''} overdue`,
+      label: `${diffDays} day${diffDays !== 1 ? 's' : ''} overdue`,
       ring: 'border-red-500/40',
       labelColor: 'text-red-400',
     };
   }
-  if (diffDays === 0) {
+  if (cls === 'due-today') {
     return { label: 'Due today', ring: 'border-amber-500/40', labelColor: 'text-amber-400' };
   }
   return {

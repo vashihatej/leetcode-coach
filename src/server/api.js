@@ -28,7 +28,7 @@ export function createApiRouter(db) {
   router.get('/patterns', (_req, res) => res.json(listPatternsWithStats(db)));
 
   router.get('/patterns/:name/problems', (req, res) =>
-    res.json(listProblemsByPattern(db, decodeURIComponent(req.params.name)))
+    res.json(listProblemsByPattern(db, req.params.name))
   );
 
   router.get('/review/due', (_req, res) => {
@@ -54,13 +54,18 @@ export function createApiRouter(db) {
 
   router.patch('/wishlist/:slug', (req, res) => {
     const { notes } = req.body || {};
-    updateWishlistNotes(db, req.params.slug, notes ?? '');
+    if (notes === undefined) return res.status(400).json({ ok: false, error: 'notes required' });
+    updateWishlistNotes(db, req.params.slug, notes);
     res.json({ ok: true });
   });
 
   router.delete('/wishlist/:slug', (req, res) => {
     removeFromWishlist(db, req.params.slug);
     res.json({ ok: true });
+  });
+
+  router.use((err, _req, res, _next) => {
+    res.status(500).json({ ok: false, error: err.message });
   });
 
   return router;
