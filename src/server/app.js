@@ -1,7 +1,9 @@
 import express from "express";
+import { join } from "node:path";
 import { upsertProblem } from "../db/queries.js";
 import { writeSession } from "../session/sessionWriter.js";
 import { PUBLIC_DIR } from "../config.js";
+import { createApiRouter } from "./api.js";
 
 export function createApp(db, sessionPath, publicDir = PUBLIC_DIR) {
   const app = express();
@@ -23,6 +25,16 @@ export function createApp(db, sessionPath, publicDir = PUBLIC_DIR) {
   });
 
   app.use(express.static(publicDir));
+
+  app.use('/api', createApiRouter(db));
+
+  app.get('/dashboard', (_req, res) => res.redirect('/dashboard/'));
+  app.use('/dashboard', (_req, res) => {
+    const idx = join(publicDir, 'dashboard', 'index.html');
+    res.sendFile(idx, err => {
+      if (err) res.status(404).send('Dashboard not built — run: cd dashboard && npm run build');
+    });
+  });
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
