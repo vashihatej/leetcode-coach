@@ -45,3 +45,13 @@ CREATE TABLE IF NOT EXISTS review_queue (
   ease REAL NOT NULL DEFAULT 2.5,
   reps INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS wishlist (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT UNIQUE NOT NULL,
+  title TEXT,
+  difficulty TEXT,
+  url TEXT,
+  notes TEXT,
+  added_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
