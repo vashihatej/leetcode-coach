@@ -187,3 +187,137 @@ export function updateWishlistNotes(db, slug, notes) {
 export function removeFromWishlist(db, slug) {
   db.prepare('DELETE FROM wishlist WHERE slug = ?').run(slug);
 }
+
+export function getStats(db) {
+  const totalProblems = db.prepare('SELECT COUNT(*) as c FROM problems').get().c;
+  const solvedProblems = db.prepare(
+    'SELECT COUNT(DISTINCT problem_id) as c FROM attempts WHERE solved = 1'
+  ).get().c;
+  const dueToday = db.prepare(
+    "SELECT COUNT(*) as c FROM review_queue WHERE due_date <= date('now')"
+  ).get().c;
+  const patternCount = db.prepare('SELECT COUNT(*) as c FROM patterns').get().c;
+
+  const dates = db
+    .prepare("SELECT DISTINCT date(date) as day FROM attempts ORDER BY day DESC")
+    .all()
+    .map(r => r.day);
+
+  let streak = 0;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let expected = todayStr;
+  for (const day of dates) {
+    if (day === expected) {
+      streak++;
+      const d = new Date(expected + 'T00:00:00Z');
+      d.setUTCDate(d.getUTCDate() - 1);
+      expected = d.toISOString().slice(0, 10);
+    } else {
+      break;
+    }
+  }
+
+  return { total_problems: totalProblems, solved_problems: solvedProblems, due_today: dueToday, pattern_count: patternCount, streak };
+}
+
+export function listProblemsWithSummary(db) {
+  return db.prepare(`
+    SELECT
+      p.id, p.slug, p.title, p.difficulty, p.topic_tags, p.url,
+      (SELECT a.solved FROM attempts a WHERE a.problem_id = p.id ORDER BY a.date DESC, a.id DESC LIMIT 1) as last_solved,
+      (SELECT a.result_type FROM attempts a WHERE a.problem_id = p.id ORDER BY a.date DESC, a.id DESC LIMIT 1) as last_result_type,
+      (SELECT a.hints_used FROM attempts a WHERE a.problem_id = p.id ORDER BY a.date DESC, a.id DESC LIMIT 1) as last_hints_used,
+      (SELECT COUNT(*) FROM attempts a WHERE a.problem_id = p.id) as attempt_count,
+      r.due_date,
+      r.ease,
+      r.reps,
+      (SELECT json_group_array(pat.name)
+       FROM patterns pat
+       JOIN pattern_problems pp ON pp.pattern_id = pat.id
+       WHERE pp.problem_id = p.id) as patterns
+    FROM problems p
+    LEFT JOIN review_queue r ON r.problem_id = p.id
+    ORDER BY p.title
+  `).all();
+}
+
+export function listAttemptsForProblem(db, slug) {
+  return db.prepare(`
+    SELECT a.*
+    FROM attempts a
+    JOIN problems p ON p.id = a.problem_id
+    WHERE p.slug = ?
+    ORDER BY a.date DESC, a.id DESC
+  `).all(slug);
+}
+
+export function listPatternsWithStats(db) {
+  return db.prepare(`
+    SELECT
+      p.*,
+      (SELECT COUNT(*) FROM pattern_problems pp WHERE pp.pattern_id = p.id) as problem_count,
+      CASE WHEN p.times_seen > 0
+        THEN ROUND(CAST(p.times_instinct_fired AS REAL) / p.times_seen, 2)
+        ELSE 0
+      END as instinct_rate
+    FROM patterns p
+    ORDER BY p.name
+  `).all();
+}
+
+export function listProblemsByPattern(db, name) {
+  const normalized = String(name).trim().toLowerCase();
+  return db.prepare(`
+    SELECT
+      prob.id, prob.slug, prob.title, prob.difficulty, prob.url,
+      (SELECT a.solved FROM attempts a WHERE a.problem_id = prob.id ORDER BY a.date DESC LIMIT 1) as last_solved,
+      (SELECT a.hints_used FROM attempts a WHERE a.problem_id = prob.id ORDER BY a.date DESC LIMIT 1) as last_hints_used,
+      (SELECT COUNT(*) FROM attempts a WHERE a.problem_id = prob.id) as attempt_count,
+      r.ease,
+      r.reps,
+      r.due_date
+    FROM problems prob
+    JOIN pattern_problems pp ON pp.problem_id = prob.id
+    JOIN patterns pat ON pat.id = pp.pattern_id
+    LEFT JOIN review_queue r ON r.problem_id = prob.id
+    WHERE pat.name = ?
+    ORDER BY prob.title
+  `).all(normalized);
+}
+
+export function listDueReviewsFull(db, today, windowDays = 7) {
+  const end = new Date(today + 'T00:00:00Z');
+  end.setUTCDate(end.getUTCDate() + windowDays);
+  const windowEnd = end.toISOString().slice(0, 10);
+  return db.prepare(`
+    SELECT r.*, p.slug, p.title, p.difficulty, p.url
+    FROM review_queue r
+    JOIN problems p ON p.id = r.problem_id
+    WHERE r.due_date <= ?
+    ORDER BY r.due_date ASC
+  `).all(windowEnd);
+}
+
+export function getActivityData(db, since) {
+  return db.prepare(`
+    SELECT date(date) as date, COUNT(*) as count
+    FROM attempts
+    WHERE date >= ?
+    GROUP BY date(date)
+    ORDER BY date ASC
+  `).all(since);
+}
+
+export function listRecentAttempts(db, limit = 10) {
+  return db.prepare(`
+    SELECT
+      a.id, a.date, a.solved, a.result_type, a.hints_used, a.time_spent,
+      p.slug, p.title, p.difficulty, p.url,
+      r.ease, r.reps
+    FROM attempts a
+    JOIN problems p ON p.id = a.problem_id
+    LEFT JOIN review_queue r ON r.problem_id = a.problem_id
+    ORDER BY a.date DESC
+    LIMIT ?
+  `).all(limit);
+}
