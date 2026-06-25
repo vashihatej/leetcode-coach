@@ -162,3 +162,28 @@ export function listDueReviews(db, asOfDate) {
     )
     .all(asOfDate);
 }
+
+export function addToWishlist(db, { slug, title = null, difficulty = null, url = null }) {
+  db.prepare(
+    `INSERT INTO wishlist (slug, title, difficulty, url)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(slug) DO NOTHING`
+  ).run(slug, title, difficulty, url);
+}
+
+export function listWishlist(db) {
+  return db.prepare(
+    `SELECT w.*, p.difficulty as prob_difficulty
+     FROM wishlist w
+     LEFT JOIN problems p ON p.slug = w.slug
+     ORDER BY w.added_at DESC, w.id DESC`
+  ).all();
+}
+
+export function updateWishlistNotes(db, slug, notes) {
+  db.prepare('UPDATE wishlist SET notes = ? WHERE slug = ?').run(notes, slug);
+}
+
+export function removeFromWishlist(db, slug) {
+  db.prepare('DELETE FROM wishlist WHERE slug = ?').run(slug);
+}
