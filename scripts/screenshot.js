@@ -1,7 +1,9 @@
 import { chromium } from 'playwright';
+import { mkdirSync } from 'fs';
 
 const BASE = 'http://localhost:8765/dashboard';
 const OUT = 'docs/screenshots';
+mkdirSync(OUT, { recursive: true });
 const VIEWPORT = { width: 1440, height: 900 };
 
 async function check() {
@@ -28,8 +30,9 @@ async function run() {
     { path: `${OUT}/wishlist.png`,  url: `${BASE}/wishlist`,  wait: 'main', delay: 800 },
   ];
 
-  for (const { path, url, delay } of shots) {
+  for (const { path, url, wait, delay } of shots) {
     await page.goto(url, { waitUntil: 'networkidle' });
+    if (wait) { try { await page.waitForSelector(wait, { timeout: 5000 }); } catch {} }
     await page.waitForTimeout(delay);
     await page.screenshot({ path, fullPage: false });
     console.log(`✓ ${path}`);
