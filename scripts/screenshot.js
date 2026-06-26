@@ -1,12 +1,12 @@
 import { chromium } from 'playwright';
 
-const BASE = 'http://localhost:8765';
+const BASE = 'http://localhost:8765/dashboard';
 const OUT = 'docs/screenshots';
 const VIEWPORT = { width: 1440, height: 900 };
 
 async function check() {
   try {
-    const r = await fetch(`${BASE}/api/stats`);
+    const r = await fetch(`http://localhost:8765/api/stats`);
     if (!r.ok) throw new Error();
   } catch {
     console.error('Server not running on port 8765. Run `npm start` first.');
@@ -21,11 +21,11 @@ async function run() {
   await page.setViewportSize(VIEWPORT);
 
   const shots = [
-    { path: `${OUT}/overview.png`,  url: `${BASE}/#/`,         wait: '.heatmap, [class*="heatmap"], [class*="StatsBar"]', delay: 800 },
-    { path: `${OUT}/problems.png`,  url: `${BASE}/#/problems`, wait: 'table', delay: 600 },
-    { path: `${OUT}/patterns.png`,  url: `${BASE}/#/patterns`, wait: '[class*="PatternCard"], .grid', delay: 600 },
-    { path: `${OUT}/review.png`,    url: `${BASE}/#/review`,   wait: 'main', delay: 400 },
-    { path: `${OUT}/wishlist.png`,  url: `${BASE}/#/wishlist`, wait: 'main', delay: 400 },
+    { path: `${OUT}/overview.png`,  url: `${BASE}/`,          wait: 'main', delay: 1500 },
+    { path: `${OUT}/problems.png`,  url: `${BASE}/problems`,  wait: 'table', delay: 1000 },
+    { path: `${OUT}/patterns.png`,  url: `${BASE}/patterns`,  wait: 'main', delay: 1000 },
+    { path: `${OUT}/review.png`,    url: `${BASE}/review`,    wait: 'main', delay: 800 },
+    { path: `${OUT}/wishlist.png`,  url: `${BASE}/wishlist`,  wait: 'main', delay: 800 },
   ];
 
   for (const { path, url, delay } of shots) {
@@ -36,8 +36,10 @@ async function run() {
   }
 
   // attempt drawer — click first problem row
-  await page.goto(`${BASE}/#/problems`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(600);
+  await page.goto(`${BASE}/problems`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1500);
+  // wait for rows to appear (React data fetch)
+  try { await page.waitForSelector('tbody tr', { timeout: 8000 }); } catch {}
   const firstRow = page.locator('tbody tr').first();
   const rowCount = await firstRow.count();
   if (rowCount > 0) {
@@ -58,8 +60,10 @@ async function run() {
   }
 
   // pattern wiki drawer — click book icon on first pattern
-  await page.goto(`${BASE}/#/patterns`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(600);
+  await page.goto(`${BASE}/patterns`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1500);
+  // wait for pattern cards to appear (React data fetch)
+  try { await page.waitForSelector('[title="Pattern wiki"]', { timeout: 8000 }); } catch {}
   const wikiBtn = page.locator('[title="Pattern wiki"]').first();
   const btnCount = await wikiBtn.count();
   if (btnCount > 0) {
