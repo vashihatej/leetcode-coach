@@ -7,5 +7,5 @@ session.md
 .DS_Store
 public/dashboard/
 
-# Playwright browser binaries (downloaded by npx playwright install)
+# Playwright / build cache
 /node_modules/.cache/
