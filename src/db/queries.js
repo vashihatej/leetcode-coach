@@ -405,16 +405,30 @@ export function getListProblems(db, listId) {
 
 export function bulkInsertListProblems(db, listId, problems) {
   const upsertLP = db.prepare(`
-    INSERT INTO list_problems (list_id, slug, url, pattern_tags)
-    VALUES (@listId, @slug, @url, @patternTags)
-    ON CONFLICT(list_id, slug) DO UPDATE SET pattern_tags = excluded.pattern_tags
+    INSERT INTO list_problems (list_id, slug, url, pattern_tags, title, difficulty, problem_id)
+    VALUES (@listId, @slug, @url, @patternTags, @title, @difficulty, @problemId)
+    ON CONFLICT(list_id, slug) DO UPDATE SET
+      pattern_tags = excluded.pattern_tags,
+      title = excluded.title,
+      difficulty = excluded.difficulty,
+      problem_id = excluded.problem_id
   `);
   const upsertW = db.prepare(`
     INSERT OR IGNORE INTO wishlist (slug, url) VALUES (@slug, @url)
   `);
+  const lookupProblem = db.prepare('SELECT id, title, difficulty FROM problems WHERE slug = ?');
   const run = db.transaction((probs) => {
     for (const p of probs) {
-      upsertLP.run({ listId, slug: p.slug, url: p.url, patternTags: JSON.stringify(p.pattern_tags) });
+      const existing = lookupProblem.get(p.slug);
+      upsertLP.run({
+        listId,
+        slug: p.slug,
+        url: p.url,
+        patternTags: JSON.stringify(p.pattern_tags),
+        title: existing?.title ?? null,
+        difficulty: existing?.difficulty ?? null,
+        problemId: existing?.id ?? null,
+      });
       upsertW.run({ slug: p.slug, url: p.url ?? null });
     }
   });
