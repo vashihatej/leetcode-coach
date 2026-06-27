@@ -3,6 +3,10 @@ import { ChevronDown, ChevronRight, ExternalLink, Trash2 } from 'lucide-react';
 import { useListProblems, useDeleteList } from '../../hooks/useLists';
 import type { ProblemList, ListProblem } from '../../lib/types';
 
+function safeParseTags(raw: string | null): string[] {
+  try { return JSON.parse(raw ?? '[]') as string[]; } catch { return []; }
+}
+
 interface Props {
   list: ProblemList;
 }
@@ -15,7 +19,7 @@ export default function ListCard({ list }: Props) {
   // Group problems by each of their pattern tags.
   const byPattern: Record<string, ListProblem[]> = {};
   for (const p of problems) {
-    const tags: string[] = JSON.parse(p.pattern_tags ?? '[]');
+    const tags: string[] = safeParseTags(p.pattern_tags);
     const groups = tags.length ? tags : ['Uncategorized'];
     for (const tag of groups) {
       if (!byPattern[tag]) byPattern[tag] = [];
