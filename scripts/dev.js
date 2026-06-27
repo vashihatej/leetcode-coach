@@ -4,10 +4,11 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT     = join(dirname(fileURLToPath(import.meta.url)), '..');
 const API_PORT = Number(process.env.COACH_PORT) || 8765;
 const UI_PORT  = 5173;
 const HEALTH   = `http://localhost:${API_PORT}/health`;
+const DASH_URL = `http://localhost:${UI_PORT}/dashboard/`;
 
 // ─── ANSI helpers ─────────────────────────────────────────────────────────────
 const R = '\x1b[0m';
@@ -43,27 +44,26 @@ function attach(proc, tag, tagColor) {
   proc.on('exit', (code, signal) => {
     if (code !== 0 && code !== null)
       emit(tag, red, red(`process exited with code ${code}`));
-    else if (signal)
+    else if (signal && signal !== 'SIGTERM')
       emit(tag, yellow, `process received signal ${signal}`);
   });
 }
 
-// ─── Poll /health until API is up ────────────────────────────────────────────
-async function waitForApi(url, timeoutMs = 120_000) {
-  const deadline  = Date.now() + timeoutMs;
-  const slowWarn  = Date.now() + 15_000;  // warn after 15s
+// ─── Poll a URL until it responds OK ─────────────────────────────────────────
+async function waitForUrl(url, label, timeoutMs = 120_000) {
+  const deadline = Date.now() + timeoutMs;
+  const slowAt   = Date.now() + 15_000;
   let warned = false;
-  let attempt = 0;
   while (Date.now() < deadline) {
     try {
-      const r = await fetch(url);
-      if (r.ok) return true;
-    } catch { /* connection refused — not up yet */ }
-    if (!warned && Date.now() > slowWarn) {
+      const r = await fetch(url, { signal: AbortSignal.timeout(2000) });
+      if (r.ok || r.status < 500) return true;
+    } catch { /* not up yet */ }
+    if (!warned && Date.now() > slowAt) {
       warned = true;
-      emit('SYS', yellow, 'still waiting — first run may be slow if node_modules are in iCloud Drive');
+      emit('SYS', yellow,
+        `${label} is slow to start — first run downloads iCloud-cached node_modules`);
     }
-    attempt++;
     await new Promise(r => setTimeout(r, 400));
   }
   return false;
@@ -88,24 +88,31 @@ const ui = spawn('npm', ['--prefix', 'dashboard', 'run', 'dev'], {
 });
 attach(ui, 'UI ', magenta);
 
-// ─── Wait for API to be healthy ───────────────────────────────────────────────
-emit('SYS', yellow, 'polling API health...');
-const ready = await waitForApi(HEALTH);
+// ─── Wait for both services ───────────────────────────────────────────────────
+emit('SYS', yellow, 'waiting for API and Vite...');
+const [apiOk, uiOk] = await Promise.all([
+  waitForUrl(HEALTH,    'API server'),
+  waitForUrl(DASH_URL,  'Vite dev server'),
+]);
+
+// Kick Vite's dependency pre-bundling now so first real browser load is fast.
+// (Vite compiles on demand; fetching the page once warms the cache.)
+// We already did this implicitly by awaiting DASH_URL above.
 
 // ─── Ready banner ─────────────────────────────────────────────────────────────
 const BAR = DIM('─'.repeat(54));
-if (ready) {
+if (apiOk && uiOk) {
   process.stdout.write('\n');
-  process.stdout.write(`  ${BOLD(green('✓  All systems go'))}\n`);
+  process.stdout.write(`  ${BOLD(green('✓  All systems go — open your browser'))}\n`);
   process.stdout.write(`  ${BAR}\n`);
-  process.stdout.write(`  ${cyan('Dashboard')}   →  ${BOLD(`http://localhost:${UI_PORT}/dashboard/`)}  ${green('← HMR enabled')}\n`);
+  process.stdout.write(`  ${cyan('Dashboard')}   →  ${BOLD(DASH_URL)}  ${green('← HMR auto-refresh')}\n`);
   process.stdout.write(`  ${cyan('API Server')}  →  ${BOLD(`http://localhost:${API_PORT}`)}\n`);
-  process.stdout.write(`  ${cyan('Health')}      →  ${BOLD(HEALTH)}\n`);
   process.stdout.write(`  ${BAR}\n`);
-  process.stdout.write(`  ${DIM('Edits in dashboard/ auto-refresh — no manual reload needed.')}\n`);
+  process.stdout.write(`  ${DIM('Changes to dashboard/src/ auto-refresh the browser.')}\n`);
   process.stdout.write(`  ${DIM('Press Ctrl+C to stop all services.')}\n\n`);
 } else {
-  emit('SYS', red, red(`API did not become ready within 2 minutes — check [API] logs above`));
+  if (!apiOk) emit('SYS', red, red('API did not start within 2 minutes — check [API] logs above'));
+  if (!uiOk)  emit('SYS', red, red('Vite did not start within 2 minutes — check [UI ] logs above'));
 }
 
 // ─── Graceful shutdown ────────────────────────────────────────────────────────
@@ -114,7 +121,6 @@ function shutdown() {
   emit('SYS', yellow, 'stopping all processes...');
   api.kill('SIGTERM');
   ui.kill('SIGTERM');
-  // Give processes a moment to finish, then exit
   setTimeout(() => process.exit(0), 700);
 }
 
