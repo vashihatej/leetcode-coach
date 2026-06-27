@@ -1,6 +1,7 @@
 import type {
   Problem, Attempt, Pattern, ReviewItem, ActivityPoint,
   Stats, WishlistItem, RecentAttempt, PatternWiki,
+  ProblemList, ListProblem,
 } from './types';
 
 async function get<T>(path: string): Promise<T> {
@@ -53,4 +54,10 @@ export const api = {
   updateWishlistNotes: (slug: string, notes: string) =>
     patch<{ ok: boolean }>(`/api/wishlist/${slug}`, { notes }),
   removeWishlist: (slug: string) => del<{ ok: boolean }>(`/api/wishlist/${slug}`),
+  lists: () => get<ProblemList[]>('/api/lists'),
+  listProblems: (id: number) => get<ListProblem[]>(`/api/lists/${id}/problems`),
+  createList: (name: string) => post<{ id: number; name: string }>('/api/lists', { name }),
+  bulkAddToList: (id: number, text: string) =>
+    post<{ inserted: number }>(`/api/lists/${id}/problems/bulk`, { text }),
+  deleteList: (id: number) => del<{ ok: boolean }>(`/api/lists/${id}`),
 };

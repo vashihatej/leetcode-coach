@@ -113,3 +113,20 @@ export interface PatternWiki {
   space_complexity: string | null;
   generated_at: string;
 }
+
+export interface ProblemList {
+  id: number;
+  name: string;
+  created_at: string;
+  problem_count: number;
+}
+
+export interface ListProblem {
+  id: number;
+  list_id: number;
+  slug: string;
+  title: string | null;
+  url: string | null;
+  difficulty: string | null;
+  pattern_tags: string | null;
+}
