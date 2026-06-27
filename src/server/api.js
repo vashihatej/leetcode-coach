@@ -12,6 +12,7 @@ import {
   addToWishlist,
   updateWishlistNotes,
   removeFromWishlist,
+  getPatternWiki,
 } from '../db/queries.js';
 
 export function createApiRouter(db) {
@@ -29,6 +30,10 @@ export function createApiRouter(db) {
 
   router.get('/patterns/:name/problems', (req, res) =>
     res.json(listProblemsByPattern(db, req.params.name))
+  );
+
+  router.get('/patterns/:name/wiki', (req, res) =>
+    res.json(getPatternWiki(db, req.params.name) ?? null)
   );
 
   router.get('/review/due', (_req, res) => {

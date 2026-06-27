@@ -47,12 +47,18 @@ export function insertAttempt(db, attempt) {
     timeSpent = null,
     mistakes = null,
     finalApproach = null,
+    ahaMoments = null,
+    confusionPoints = null,
+    analogyLiked = null,
+    vizPath = null,
   } = attempt;
   const info = db
     .prepare(
       `INSERT INTO attempts
-         (problem_id, date, solved, result_type, hints_used, time_spent, mistakes, final_approach)
-       VALUES (@problemId, @date, @solved, @resultType, @hintsUsed, @timeSpent, @mistakes, @finalApproach)`
+         (problem_id, date, solved, result_type, hints_used, time_spent, mistakes, final_approach,
+          aha_moments, confusion_points, analogy_liked, viz_path)
+       VALUES (@problemId, @date, @solved, @resultType, @hintsUsed, @timeSpent, @mistakes, @finalApproach,
+               @ahaMoments, @confusionPoints, @analogyLiked, @vizPath)`
     )
     .run({
       problemId,
@@ -63,6 +69,10 @@ export function insertAttempt(db, attempt) {
       timeSpent,
       mistakes,
       finalApproach,
+      ahaMoments,
+      confusionPoints,
+      analogyLiked,
+      vizPath,
     });
   return Number(info.lastInsertRowid);
 }
@@ -230,6 +240,7 @@ export function listProblemsWithSummary(db) {
       (SELECT a.solved FROM attempts a WHERE a.problem_id = p.id ORDER BY a.date DESC, a.id DESC LIMIT 1) as last_solved,
       (SELECT a.result_type FROM attempts a WHERE a.problem_id = p.id ORDER BY a.date DESC, a.id DESC LIMIT 1) as last_result_type,
       (SELECT a.hints_used FROM attempts a WHERE a.problem_id = p.id ORDER BY a.date DESC, a.id DESC LIMIT 1) as last_hints_used,
+      (SELECT a.viz_path FROM attempts a WHERE a.problem_id = p.id AND a.viz_path IS NOT NULL ORDER BY a.date DESC, a.id DESC LIMIT 1) as last_viz_path,
       (SELECT COUNT(*) FROM attempts a WHERE a.problem_id = p.id) as attempt_count,
       r.due_date,
       r.ease,
@@ -310,6 +321,50 @@ export function getActivityData(db, since) {
     GROUP BY date(date)
     ORDER BY date ASC
   `).all(since);
+}
+
+export function upsertPatternWiki(db, { patternName, description, signals, invariant, analogy, templateCode, mistakes, whenNot, related, timeComplexity, spaceComplexity }) {
+  const row = db.prepare('SELECT id FROM patterns WHERE name = ?').get(String(patternName).trim().toLowerCase());
+  if (!row) throw new Error(`pattern not found: ${patternName}`);
+  db.prepare(`
+    INSERT INTO pattern_wiki
+      (pattern_id, description, signals, invariant, analogy, template_code, mistakes, when_not, related, time_complexity, space_complexity)
+    VALUES
+      (@patternId, @description, @signals, @invariant, @analogy, @templateCode, @mistakes, @whenNot, @related, @timeComplexity, @spaceComplexity)
+    ON CONFLICT(pattern_id) DO UPDATE SET
+      description = excluded.description,
+      signals = excluded.signals,
+      invariant = excluded.invariant,
+      analogy = excluded.analogy,
+      template_code = excluded.template_code,
+      mistakes = excluded.mistakes,
+      when_not = excluded.when_not,
+      related = excluded.related,
+      time_complexity = excluded.time_complexity,
+      space_complexity = excluded.space_complexity,
+      generated_at = datetime('now')
+  `).run({
+    patternId: row.id,
+    description: description ?? null,
+    signals: signals ? JSON.stringify(signals) : null,
+    invariant: invariant ?? null,
+    analogy: analogy ?? null,
+    templateCode: templateCode ?? null,
+    mistakes: mistakes ? JSON.stringify(mistakes) : null,
+    whenNot: whenNot ?? null,
+    related: related ? JSON.stringify(related) : null,
+    timeComplexity: timeComplexity ?? null,
+    spaceComplexity: spaceComplexity ?? null,
+  });
+}
+
+export function getPatternWiki(db, patternName) {
+  return db.prepare(`
+    SELECT w.*
+    FROM pattern_wiki w
+    JOIN patterns p ON p.id = w.pattern_id
+    WHERE p.name = ?
+  `).get(String(patternName).trim().toLowerCase());
 }
 
 export function listRecentAttempts(db, limit = 10) {

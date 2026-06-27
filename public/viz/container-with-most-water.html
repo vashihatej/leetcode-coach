@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Container With Most Water — Two Pointers</title>
+  <link rel="stylesheet" href="/viz/viz-kit.css" />
+  <style>
+    .bar {
+      position: absolute;
+      border-radius: 6px 6px 0 0;
+      background: #21262d;
+      border: 2px solid transparent;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .bar--lo { border-color: #58a6ff; background: rgba(88, 166, 255, 0.12); }
+    .bar--hi { border-color: #bc8cff; background: rgba(188, 140, 255, 0.12); }
+    .bar-val {
+      position: absolute;
+      top: -22px;
+      left: 0; right: 0;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: #e6edf3;
+    }
+    .bar-idx {
+      position: absolute;
+      bottom: -20px;
+      left: 0; right: 0;
+      text-align: center;
+      font-size: 11px;
+      color: #8b949e;
+    }
+    .water-rect {
+      position: absolute;
+      border-radius: 4px;
+      pointer-events: none;
+      background: rgba(88, 166, 255, 0.15);
+      border: 2px solid rgba(88, 166, 255, 0.45);
+    }
+    .water-rect--max {
+      background: rgba(63, 185, 80, 0.15);
+      border-color: rgba(63, 185, 80, 0.55);
+    }
+    .ground-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: #30363d;
+      border-radius: 1px;
+    }
+  </style>
+</head>
+<body class="viz-app">
+  <pre id="code" class="viz-code"></pre>
+  <div class="viz-stagewrap">
+    <h1 class="viz-title">Container With Most Water — Two Pointers</h1>
+    <div id="stage" class="viz-stage" style="min-height:280px"></div>
+    <div id="note" class="viz-note"></div>
+  </div>
+  <div id="state" class="viz-state"></div>
+  <div id="controls" class="viz-controls"></div>
+
+  <script type="module">
+    import { Viz, lerp } from "/viz/viz-kit.js";
+
+    const H = [1, 8, 6, 2, 5, 4, 8, 3, 7];
+    const CELL = 60;
+    const BAR_W = 46;
+    const SCALE = 22;
+    const PAD = 20;
+    const GROUND_Y = 210; // y-coordinate of ground line
+
+    const SOURCE = [
+      "def maxArea(height):",
+      "    lo, hi = 0, len(height) - 1",
+      "    max_area = 0",
+      "    while lo < hi:",
+      "        area = min(height[lo], height[hi]) * (hi - lo)",
+      "        max_area = max(max_area, area)",
+      "        if height[lo] < height[hi]:",
+      "            lo += 1",
+      "        else:",
+      "            hi -= 1",
+      "    return max_area",
+    ].join("\n");
+
+    function buildFrames() {
+      const frames = [];
+      let lo = 0, hi = H.length - 1, maxArea = 0;
+
+      frames.push({ lo, hi, area: null, maxArea, line: 2,
+        note: `Initialize: lo=${lo}, hi=${hi}. Scan inward from both ends.`,
+        isMax: false });
+
+      while (lo < hi) {
+        const area = Math.min(H[lo], H[hi]) * (hi - lo);
+        const newMax = area > maxArea;
+        maxArea = Math.max(maxArea, area);
+
+        frames.push({ lo, hi, area, maxArea, line: 5,
+          note: `area = min(${H[lo]}, ${H[hi]}) × ${hi - lo} = ${area}` + (newMax ? " ← new max!" : ""),
+          isMax: newMax });
+
+        if (H[lo] < H[hi]) {
+          frames.push({ lo, hi, area, maxArea, line: 8,
+            note: `height[${lo}]=${H[lo]} is shorter — it caps every pair on this side. Move lo right.`,
+            isMax: false });
+          lo += 1;
+        } else {
+          frames.push({ lo, hi, area, maxArea, line: 10,
+            note: `height[${hi}]=${H[hi]} is shorter (or equal) — move hi left.`,
+            isMax: false });
+          hi -= 1;
+        }
+      }
+
+      frames.push({ lo, hi: lo, area: null, maxArea, line: 11,
+        note: `lo = hi = ${lo}. Pointers met — done. Maximum area = ${maxArea}.`,
+        isMax: false });
+
+      return frames;
+    }
+
+    const frames = buildFrames();
+    const stage = document.getElementById("stage");
+
+    // Ground line
+    const ground = document.createElement("div");
+    ground.className = "ground-line";
+    ground.style.top = `${GROUND_Y}px`;
+    stage.appendChild(ground);
+
+    // Water rectangle (behind bars)
+    const waterEl = document.createElement("div");
+    waterEl.className = "water-rect";
+    stage.appendChild(waterEl);
+
+    // Bars
+    const barEls = H.map((v, i) => {
+      const wrap = document.createElement("div");
+      wrap.className = "bar";
+      wrap.style.left = `${PAD + i * CELL}px`;
+      wrap.style.width = `${BAR_W}px`;
+      wrap.style.height = `${v * SCALE}px`;
+      wrap.style.top = `${GROUND_Y - v * SCALE}px`;
+      wrap.innerHTML =
+        `<span class="bar-val">${v}</span>` +
+        `<span class="bar-idx">${i}</span>`;
+      stage.appendChild(wrap);
+      return wrap;
+    });
+
+    // Pointer labels
+    const loMark = document.createElement("div");
+    loMark.className = "viz-pointer viz-pointer--lo";
+    loMark.textContent = "lo";
+    loMark.style.top = `${GROUND_Y + 22}px`;
+
+    const hiMark = document.createElement("div");
+    hiMark.className = "viz-pointer viz-pointer--hi";
+    hiMark.textContent = "hi";
+    hiMark.style.top = `${GROUND_Y + 22}px`;
+
+    stage.append(loMark, hiMark);
+
+    const ptrX = (i) => PAD + i * CELL + BAR_W / 2 - 12;
+
+    function render(fi, t) {
+      const f = frames[fi];
+      const prev = frames[Math.max(0, fi - 1)];
+
+      // Animate pointers
+      loMark.style.left = `${lerp(ptrX(prev.lo), ptrX(f.lo), t)}px`;
+      hiMark.style.left = `${lerp(ptrX(prev.hi), ptrX(f.hi), t)}px`;
+
+      // Animate water rectangle
+      const wLo = lerp(prev.lo, f.lo, t);
+      const wHi = lerp(prev.hi, f.hi, t);
+      const prevH = Math.min(H[prev.lo], H[prev.hi]);
+      const currH = f.area != null ? Math.min(H[f.lo], H[f.hi]) : 0;
+      const waterH = lerp(prevH, currH, t) * SCALE;
+
+      waterEl.style.left = `${PAD + wLo * CELL}px`;
+      waterEl.style.width = `${(wHi - wLo) * CELL + BAR_W}px`;
+      waterEl.style.height = `${waterH}px`;
+      waterEl.style.top = `${GROUND_Y - waterH}px`;
+      waterEl.classList.toggle("water-rect--max", f.isMax);
+
+      // Highlight bars
+      barEls.forEach((bar, i) => {
+        bar.classList.toggle("bar--lo", i === f.lo);
+        bar.classList.toggle("bar--hi", i === f.hi && i !== f.lo);
+      });
+    }
+
+    Viz.create({
+      controls: document.getElementById("controls"),
+      frameCount: frames.length,
+      render,
+      codeEl: document.getElementById("code"),
+      source: SOURCE,
+      lineForFrame: (i) => frames[i].line,
+      stateEl: document.getElementById("state"),
+      stateRows: (i) => {
+        const f = frames[i];
+        return [
+          ["lo",         String(f.lo)],
+          ["hi",         String(f.hi)],
+          ["height[lo]", String(H[f.lo])],
+          ["height[hi]", String(H[f.hi])],
+          ["area",       f.area != null ? String(f.area) : "—"],
+          ["max_area",   String(f.maxArea)],
+        ];
+      },
+      noteEl: document.getElementById("note"),
+      note: (i) => frames[i].note,
+    });
+  </script>
+</body>
+</html>

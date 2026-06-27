@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ExternalLink, Plus } from 'lucide-react';
+import { ExternalLink, Plus, Play } from 'lucide-react';
 import { useProblems } from '../../hooks/useProblems';
 import { useAddWishlist } from '../../hooks/useWishlist';
 import type { Problem } from '../../lib/types';
@@ -117,21 +117,35 @@ export default function ProblemTable() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        title="Add to wishlist"
-                        onClick={e => {
-                          e.stopPropagation();
-                          addWishlist.mutate({
-                            slug: p.slug,
-                            title: p.title ?? undefined,
-                            difficulty: p.difficulty ?? undefined,
-                            url: p.url ?? undefined,
-                          });
-                        }}
-                        className="text-gray-600 hover:text-indigo-400 transition-colors"
-                      >
-                        <Plus size={14} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {p.last_viz_path && (
+                          <a
+                            href={`http://localhost:8765/${p.last_viz_path}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Open visualization"
+                            onClick={e => e.stopPropagation()}
+                            className="text-indigo-500 hover:text-indigo-300 transition-colors"
+                          >
+                            <Play size={13} />
+                          </a>
+                        )}
+                        <button
+                          title="Add to wishlist"
+                          onClick={e => {
+                            e.stopPropagation();
+                            addWishlist.mutate({
+                              slug: p.slug,
+                              title: p.title ?? undefined,
+                              difficulty: p.difficulty ?? undefined,
+                              url: p.url ?? undefined,
+                            });
+                          }}
+                          className="text-gray-600 hover:text-indigo-400 transition-colors"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

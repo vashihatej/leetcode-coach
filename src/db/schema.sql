@@ -19,7 +19,11 @@ CREATE TABLE IF NOT EXISTS attempts (
   hints_used TEXT,
   time_spent INTEGER,
   mistakes TEXT,
-  final_approach TEXT
+  final_approach TEXT,
+  aha_moments TEXT,
+  confusion_points TEXT,
+  analogy_liked TEXT,
+  viz_path TEXT
 );
 
 CREATE TABLE IF NOT EXISTS patterns (
@@ -44,6 +48,22 @@ CREATE TABLE IF NOT EXISTS review_queue (
   interval INTEGER NOT NULL DEFAULT 1,
   ease REAL NOT NULL DEFAULT 2.5,
   reps INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS pattern_wiki (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pattern_id INTEGER UNIQUE NOT NULL REFERENCES patterns(id),
+  description TEXT,
+  signals TEXT,
+  invariant TEXT,
+  analogy TEXT,
+  template_code TEXT,
+  mistakes TEXT,
+  when_not TEXT,
+  related TEXT,
+  time_complexity TEXT,
+  space_complexity TEXT,
+  generated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS wishlist (

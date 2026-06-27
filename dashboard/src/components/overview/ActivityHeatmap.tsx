@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { ActivityPoint } from '../../lib/types';
 
 function intensity(count: number): string {
-  if (count === 0) return 'bg-gray-800';
+  if (count === 0) return 'bg-slate-700';
   if (count <= 2) return 'bg-green-900';
   if (count <= 4) return 'bg-green-700';
   return 'bg-green-500';

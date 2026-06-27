@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, BookOpen } from 'lucide-react';
 import type { Pattern } from '../../lib/types';
 
 const MASTERY_COLOR: Record<string, string> = {
@@ -19,10 +19,12 @@ export default function PatternCard({
   pattern,
   isExpanded,
   onToggle,
+  onOpenWiki,
 }: {
   pattern: Pattern;
   isExpanded: boolean;
   onToggle: () => void;
+  onOpenWiki: () => void;
 }) {
   const masteryKey = pattern.mastery ?? 'not_started';
   const instPct = Math.round((pattern.instinct_rate ?? 0) * 100);
@@ -63,8 +65,17 @@ export default function PatternCard({
             />
           </div>
         </div>
-        <div className="ml-3 text-gray-400 flex-shrink-0">
-          {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        <div className="ml-3 flex items-center gap-2 flex-shrink-0">
+          <button
+            title="Pattern wiki"
+            onClick={e => { e.stopPropagation(); onOpenWiki(); }}
+            className="text-gray-500 hover:text-indigo-400 transition-colors"
+          >
+            <BookOpen size={15} />
+          </button>
+          <span className="text-gray-400">
+            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </span>
         </div>
       </div>
     </div>

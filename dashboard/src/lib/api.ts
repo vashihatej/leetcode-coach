@@ -1,6 +1,6 @@
 import type {
   Problem, Attempt, Pattern, ReviewItem, ActivityPoint,
-  Stats, WishlistItem, RecentAttempt,
+  Stats, WishlistItem, RecentAttempt, PatternWiki,
 } from './types';
 
 async function get<T>(path: string): Promise<T> {
@@ -42,6 +42,8 @@ export const api = {
   patterns: () => get<Pattern[]>('/api/patterns'),
   patternProblems: (name: string) =>
     get<Problem[]>(`/api/patterns/${encodeURIComponent(name)}/problems`),
+  patternWiki: (name: string) =>
+    get<PatternWiki | null>(`/api/patterns/${encodeURIComponent(name)}/wiki`),
   reviewDue: () => get<ReviewItem[]>('/api/review/due'),
   activity: () => get<ActivityPoint[]>('/api/activity'),
   recentAttempts: () => get<RecentAttempt[]>('/api/recent-attempts'),

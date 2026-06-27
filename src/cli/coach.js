@@ -8,6 +8,9 @@ import {
   cmdSetMastery,
   cmdStatus,
   cmdReviewDue,
+  cmdEnrichPattern,
+  cmdPatternWikiStatus,
+  cmdSetVizPath,
 } from "./commands.js";
 
 const db = openDb(DB_PATH);
@@ -29,6 +32,10 @@ program
   .option("--instinct-fired", "user recognized the recorded pattern before coaching", false)
   .option("--mistakes <text>")
   .option("--approach <text>")
+  .option("--aha <text>")
+  .option("--confusion <text>")
+  .option("--analogy <text>")
+  .option("--viz-path <path>")
   .action((opts) => console.log(cmdLogAttempt(db, opts)));
 
 program
@@ -46,5 +53,34 @@ program
   .command("review-due")
   .description("list problems due for spaced-repetition review")
   .action(() => console.log(cmdReviewDue(db)));
+
+program
+  .command("enrich-pattern")
+  .description("save a wiki knowledge card for a pattern")
+  .requiredOption("--pattern <name>")
+  .option("--description <text>")
+  .option("--signals <csv-or-json>")
+  .option("--invariant <text>")
+  .option("--analogy <text>")
+  .option("--template <code>")
+  .option("--mistakes <csv-or-json>")
+  .option("--when-not <text>")
+  .option("--related <csv-or-json>")
+  .option("--time-complexity <text>")
+  .option("--space-complexity <text>")
+  .action((opts) => console.log(cmdEnrichPattern(db, opts)));
+
+program
+  .command("pattern-wiki-status")
+  .description("check if a pattern has a wiki entry")
+  .requiredOption("--pattern <name>")
+  .action((opts) => console.log(cmdPatternWikiStatus(db, opts)));
+
+program
+  .command("set-viz-path")
+  .description("attach a viz path to the most recent attempt for a problem")
+  .requiredOption("--slug <slug>")
+  .requiredOption("--viz-path <path>")
+  .action((opts) => console.log(cmdSetVizPath(db, opts)));
 
 program.parse();

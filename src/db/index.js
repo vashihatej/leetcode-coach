@@ -13,6 +13,19 @@ function migrate(db) {
     db.exec("ALTER TABLE review_queue ADD COLUMN reps INTEGER NOT NULL DEFAULT 0");
   }
 
+  const attemptCols = db.prepare("PRAGMA table_info(attempts)").all();
+  const attemptAdditions = [
+    ["aha_moments", "TEXT"],
+    ["confusion_points", "TEXT"],
+    ["analogy_liked", "TEXT"],
+    ["viz_path", "TEXT"],
+  ];
+  for (const [name, type] of attemptAdditions) {
+    if (!attemptCols.some((column) => column.name === name)) {
+      db.exec(`ALTER TABLE attempts ADD COLUMN ${name} ${type}`);
+    }
+  }
+
   const problemCols = db.prepare("PRAGMA table_info(problems)").all();
   const additions = [
     ["description", "TEXT"],

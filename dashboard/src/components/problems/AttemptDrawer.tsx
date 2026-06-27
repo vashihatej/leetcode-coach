@@ -89,6 +89,37 @@ export default function AttemptDrawer({
                     <p className="text-xs text-gray-300 mt-0.5">{a.final_approach}</p>
                   </div>
                 )}
+                {a.aha_moments && (
+                  <div>
+                    <p className="text-xs text-gray-500">Aha moments:</p>
+                    <p className="text-xs text-emerald-300 mt-0.5">{a.aha_moments}</p>
+                  </div>
+                )}
+                {a.confusion_points && (
+                  <div>
+                    <p className="text-xs text-gray-500">Where I struggled:</p>
+                    <p className="text-xs text-orange-300 mt-0.5">{a.confusion_points}</p>
+                  </div>
+                )}
+                {a.analogy_liked && (
+                  <div>
+                    <p className="text-xs text-gray-500">Analogy that clicked:</p>
+                    <p className="text-xs text-sky-300 mt-0.5 italic">{a.analogy_liked}</p>
+                  </div>
+                )}
+                {a.viz_path && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Visualization:</p>
+                    <a
+                      href={`http://localhost:8765/${a.viz_path}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-indigo-400 hover:text-indigo-300 underline"
+                    >
+                      {a.viz_path.split('/').pop()}
+                    </a>
+                  </div>
+                )}
               </div>
             );
           })}

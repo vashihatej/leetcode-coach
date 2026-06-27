@@ -8,6 +8,9 @@ import {
   upsertReview,
   listDueReviews,
   recordPatternOutcome,
+  upsertPatternWiki,
+  getPatternWiki,
+  ensurePattern,
 } from "../db/queries.js";
 import { gradeAttempt, nextSchedule } from "../sr/scheduler.js";
 import fs from "node:fs";
@@ -48,6 +51,10 @@ export function cmdLogAttempt(db, args) {
     hintsUsed: parseHints(args.hints),
     mistakes: args.mistakes ?? null,
     finalApproach: args.approach ?? null,
+    ahaMoments: args.aha ?? null,
+    confusionPoints: args.confusion ?? null,
+    analogyLiked: args.analogy ?? null,
+    vizPath: args.vizPath ?? args['viz-path'] ?? null,
   };
   insertAttempt(db, attempt);
 
@@ -104,6 +111,59 @@ export function cmdReviewDue(db) {
       return `${r.slug} · ${r.title ?? ""} · ${r.difficulty ?? "?"} · ${when}`;
     })
     .join("\n");
+}
+
+export function cmdEnrichPattern(db, args) {
+  const name = String(args.pattern || '').trim().toLowerCase();
+  if (!name) throw new Error('--pattern is required');
+  ensurePattern(db, name);
+
+  function parseList(val) {
+    if (!val) return null;
+    try { return JSON.parse(val); } catch { /* not JSON */ }
+    return val.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
+  upsertPatternWiki(db, {
+    patternName: name,
+    description: args.description ?? null,
+    signals: parseList(args.signals),
+    invariant: args.invariant ?? null,
+    analogy: args.analogy ?? null,
+    templateCode: args.template ? args.template.replace(/\\n/g, '\n') : null,
+    mistakes: parseList(args.mistakes),
+    whenNot: args['when-not'] ?? null,
+    related: parseList(args.related),
+    timeComplexity: args['time-complexity'] ?? null,
+    spaceComplexity: args['space-complexity'] ?? null,
+  });
+
+  const hasWiki = Boolean(getPatternWiki(db, name));
+  return `wiki ${hasWiki ? 'saved' : 'failed'} for pattern: ${name}`;
+}
+
+export function cmdPatternWikiStatus(db, args) {
+  const name = String(args.pattern || '').trim().toLowerCase();
+  const wiki = getPatternWiki(db, name);
+  return wiki ? `wiki exists (generated ${wiki.generated_at})` : 'no wiki yet';
+}
+
+export function cmdSetVizPath(db, args) {
+  const slug = String(args.slug || '').trim();
+  const vizPath = String(args.vizPath || args['viz-path'] || '').trim();
+  if (!slug) throw new Error('--slug is required');
+  if (!vizPath) throw new Error('--viz-path is required');
+
+  const problemId = problemIdBySlug(db, slug);
+  if (!problemId) return `no problem found for slug: ${slug}`;
+
+  const row = db
+    .prepare('SELECT id FROM attempts WHERE problem_id = ? ORDER BY date DESC, id DESC LIMIT 1')
+    .get(problemId);
+  if (!row) return `no attempts logged for: ${slug}`;
+
+  db.prepare('UPDATE attempts SET viz_path = ? WHERE id = ?').run(vizPath, row.id);
+  return `viz path set for ${slug} (attempt #${row.id}): ${vizPath}`;
 }
 
 function daysBetween(fromDate, toDate) {

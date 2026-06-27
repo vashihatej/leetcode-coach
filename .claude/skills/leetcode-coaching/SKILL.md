@@ -128,15 +128,15 @@ react, then move on.
    tools come to mind?" Let them name the pattern. If they can't, that's what the hint
    ladder is for.
 
-Throughout the framework, use analogy-based learning whenever it makes the idea easier to
-remember. The analogy must explain the invariant, constraint, or tradeoff, not merely decorate
-the answer.
+Throughout the framework, **every explanation of a concept, pattern, step, or optimization
+must include an analogy**. This is not optional. The analogy must explain the invariant,
+constraint, or tradeoff, not merely decorate the answer.
 
 ## Analogy-Based Learning — make the abstract concrete
 
-When explaining an algorithm, data structure, pattern, invariant, or optimization, attach a
-simple real-world analogy before or after the technical explanation. Keep it short, accurate,
-and tied to the exact mental model the user needs.
+Every time you explain an algorithm, data structure, pattern, invariant, or optimization —
+**always attach a real-world analogy**. No exceptions. Keep it short, accurate, and tied to
+the exact mental model the user needs.
 
 Good analogies:
 
@@ -215,9 +215,14 @@ How to build one:
    *how each line changes state* — wire `source`, `lineForFrame`, and `stateRows` so
    the executing line highlights and the variables update in lockstep with the motion.
 
-4. **Share the URL.** The server serves it at
-   `http://localhost:8765/viz/<slug>-<concept>.html`. Tell the user to open it and
-   scrub or play through.
+4. **Share the URL and register it immediately.** The server serves it at
+   `http://localhost:8765/viz/<slug>-<concept>.html`. Tell the user to open it.
+   Then, without waiting to be asked, run:
+   ```bash
+   node src/cli/coach.js set-viz-path --slug <problem-slug> --viz-path "viz/<slug>-<concept>.html"
+   ```
+   This attaches the viz to the most recent attempt so the dashboard link appears
+   automatically. Do this right after writing the file — never defer it.
 
 Keep it motion-first: the kit tweens between frames, so design frames as meaningful
 states and let `render(index, t)` interpolate positions for smooth movement.
@@ -267,9 +272,11 @@ the solution. Do not make them ask separately for every item below.
 5. **Common mistakes.** Name likely implementation and reasoning errors, especially any the
    user made during the session.
 6. **Future recognition.** State the problem signals, the pattern they indicate, and when the
-   pattern would not apply.
-7. **Memory hook.** End with one compact real-world analogy or if-then phrase that captures the
-   invariant.
+   pattern would not apply. Always follow immediately with a real-world analogy that maps to
+   the same instinct — the if-then plants the trigger, the analogy makes it stick.
+7. **Memory hook.** Give both: the if-then trigger phrase AND a real-world analogy. Don't
+   make them ask separately — the trigger tells them when to reach for the pattern, the analogy
+   gives them something visceral to remember it by.
 
 If the user wants coaching only and has not reached understanding, stay in the framework or hint
 ladder. If they explicitly tap out, provide the completion phase without shaming them, but still
@@ -296,17 +303,49 @@ the next session knows more than this one did.
    node src/cli/coach.js log-attempt --slug <problem-slug> --solved --result <brute|optimal> \
      --patterns "<comma-separated patterns>" [--instinct-fired] \
      --hints <comma-separated rungs used, e.g. 2,4> --mistakes "<what tripped them>" \
-     --approach "<their final approach>"
+     --approach "<their final approach>" \
+     --aha "<key insight or clue that unlocked the solution>" \
+     --confusion "<where they lacked understanding or got stuck>" \
+     --analogy "<the analogy they resonated with most>" \
+     --viz-path "viz/<slug>-<concept>.html"
    ```
    Omit `--solved` if they didn't solve it. The hints field is important — it's the evidence
    behind their mastery. Use `--instinct-fired` only when the user recognized the recorded
-   pattern before it was named by the coach.
+   pattern before it was named by the coach. The four new fields are not optional — you
+   have all of this from the session. Fill every one: `--aha` is the moment the user said
+   "oh I get it" (or the nudge that unlocked it). `--confusion` is whatever they got wrong
+   or needed most hints on. `--analogy` is the one you gave that seemed to land. `--viz-path`
+   is required if a visualization was built this session.
 
    - Logging the attempt also schedules the next spaced-repetition review automatically (SM-2,
      graded by independence: unaided solves wait longer, hinted solves return sooner, unsolved
      resets to tomorrow). No separate command is needed — just log accurate `--solved`/`--hints`.
 
-2. **Update mastery** when you have a real read on a pattern:
+2. **Generate the pattern wiki if missing.** For each pattern you logged, check:
+   ```bash
+   node src/cli/coach.js pattern-wiki-status --pattern "<pattern name>"
+   ```
+   If the output says "no wiki yet", generate one now and save it:
+   ```bash
+   node src/cli/coach.js enrich-pattern --pattern "<name>" \
+     --description "<what this technique is in 2-3 sentences>" \
+     --signals "<signal1,signal2,signal3>" \
+     --invariant "<the core insight — what property is maintained or exploited>" \
+     --analogy "<the real-world analogy that makes it stick>" \
+     --template "<skeleton Python code — use \\n for newlines>" \
+     --mistakes "<mistake1,mistake2>" \
+     --when-not "<when this pattern fools you but doesn't apply>" \
+     --related "<related-pattern1,related-pattern2>" \
+     --time-complexity "O(?)" \
+     --space-complexity "O(?)"
+   ```
+   Write the wiki from your own knowledge — you know these patterns cold. This runs once
+   per pattern ever, so take 60 seconds to make it genuinely useful. The signals should be
+   concrete ("does the problem ask for a contiguous subarray?"), not vague. The analogy
+   must be the one from the session or a better one. The template should be idiomatic Python
+   that a student can actually adapt.
+
+3. **Update mastery** when you have a real read on a pattern:
    ```bash
    node src/cli/coach.js set-mastery --pattern "<pattern name>" --level <not_started|shaky|solid>
    ```

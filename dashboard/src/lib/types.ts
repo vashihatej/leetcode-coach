@@ -8,6 +8,7 @@ export interface Problem {
   last_solved: number | null;
   last_result_type: string | null;
   last_hints_used: string | null;
+  last_viz_path: string | null;
   attempt_count: number;
   due_date: string | null;
   ease: number | null;
@@ -25,6 +26,10 @@ export interface Attempt {
   time_spent: number | null;
   mistakes: string | null;
   final_approach: string | null;
+  aha_moments: string | null;
+  confusion_points: string | null;
+  analogy_liked: string | null;
+  viz_path: string | null;
 }
 
 export interface Pattern {
@@ -92,3 +97,19 @@ export interface RecentAttempt {
 }
 
 export type ComfortLevel = 'instinct' | 'solid' | 'learning' | 'shaky' | 'new';
+
+export interface PatternWiki {
+  id: number;
+  pattern_id: number;
+  description: string | null;
+  signals: string | null;
+  invariant: string | null;
+  analogy: string | null;
+  template_code: string | null;
+  mistakes: string | null;
+  when_not: string | null;
+  related: string | null;
+  time_complexity: string | null;
+  space_complexity: string | null;
+  generated_at: string;
+}
