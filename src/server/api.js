@@ -13,7 +13,38 @@ import {
   updateWishlistNotes,
   removeFromWishlist,
   getPatternWiki,
+  getLists,
+  createList,
+  getListProblems,
+  bulkInsertListProblems,
+  deleteList,
 } from '../db/queries.js';
+
+function parseBulkText(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const patternMap = {};   // slug -> Set<string>
+  const urlMap = {};       // slug -> url string
+  let currentPattern = null;
+
+  for (const line of lines) {
+    if (line.startsWith('http')) {
+      if (!currentPattern) continue;
+      const match = line.match(/problems\/([\w-]+)/);
+      if (!match) continue;
+      const slug = match[1];
+      if (!patternMap[slug]) { patternMap[slug] = new Set(); urlMap[slug] = line; }
+      patternMap[slug].add(currentPattern);
+    } else {
+      currentPattern = line;
+    }
+  }
+
+  return Object.entries(patternMap).map(([slug, patterns]) => ({
+    slug,
+    url: urlMap[slug],
+    pattern_tags: [...patterns],
+  }));
+}
 
 export function createApiRouter(db) {
   const router = Router();
@@ -66,6 +97,38 @@ export function createApiRouter(db) {
 
   router.delete('/wishlist/:slug', (req, res) => {
     removeFromWishlist(db, req.params.slug);
+    res.json({ ok: true });
+  });
+
+  router.get('/lists', (_req, res) => res.json(getLists(db)));
+
+  router.post('/lists', (req, res) => {
+    const { name } = req.body || {};
+    if (!name?.trim()) return res.status(400).json({ ok: false, error: 'name required' });
+    try {
+      const list = createList(db, name.trim());
+      res.json(list);
+    } catch (e) {
+      if (e.message.includes('UNIQUE')) return res.status(409).json({ ok: false, error: 'name already exists' });
+      throw e;
+    }
+  });
+
+  router.get('/lists/:id/problems', (req, res) =>
+    res.json(getListProblems(db, Number(req.params.id)))
+  );
+
+  router.post('/lists/:id/problems/bulk', (req, res) => {
+    const { text } = req.body || {};
+    if (!text?.trim()) return res.status(400).json({ ok: false, error: 'text required' });
+    const parsed = parseBulkText(text);
+    if (!parsed.length) return res.status(400).json({ ok: false, error: 'no URLs found' });
+    bulkInsertListProblems(db, Number(req.params.id), parsed);
+    res.json({ inserted: parsed.length });
+  });
+
+  router.delete('/lists/:id', (req, res) => {
+    deleteList(db, Number(req.params.id));
     res.json({ ok: true });
   });
 
