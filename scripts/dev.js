@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Dev orchestrator — replaces concurrently for rich, prefixed logging.
 import { spawn } from 'child_process';
+import { createConnection } from 'net';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -8,7 +9,6 @@ const ROOT     = join(dirname(fileURLToPath(import.meta.url)), '..');
 const API_PORT = Number(process.env.COACH_PORT) || 8765;
 const UI_PORT  = 5173;
 const HEALTH   = `http://localhost:${API_PORT}/health`;
-const DASH_URL = `http://localhost:${UI_PORT}/dashboard/`;
 
 // ─── ANSI helpers ─────────────────────────────────────────────────────────────
 const R = '\x1b[0m';
@@ -49,21 +49,42 @@ function attach(proc, tag, tagColor) {
   });
 }
 
-// ─── Poll a URL until it responds OK ─────────────────────────────────────────
-async function waitForUrl(url, label, timeoutMs = 120_000) {
+// ─── Check a TCP port is listening (not an HTTP fetch) ───────────────────────
+// We use TCP for Vite because the first HTTP request triggers on-demand
+// compilation and can take 10-30s, making an HTTP-based readiness check
+// time out even though Vite is perfectly healthy.
+function tcpReady(port) {
+  return new Promise(resolve => {
+    const sock = createConnection({ port, host: '127.0.0.1' });
+    sock.once('connect', () => { sock.destroy(); resolve(true); });
+    sock.once('error',   () => { sock.destroy(); resolve(false); });
+  });
+}
+
+async function waitForPort(port, label, timeoutMs = 120_000) {
   const deadline = Date.now() + timeoutMs;
-  const slowAt   = Date.now() + 15_000;
+  const slowAt   = Date.now() + 20_000;
   let warned = false;
   while (Date.now() < deadline) {
-    try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(2000) });
-      if (r.ok || r.status < 500) return true;
-    } catch { /* not up yet */ }
+    if (await tcpReady(port)) return true;
     if (!warned && Date.now() > slowAt) {
       warned = true;
       emit('SYS', yellow,
-        `${label} is slow to start — first run downloads iCloud-cached node_modules`);
+        `${label} is slow — may be downloading iCloud-cached node_modules on first run`);
     }
+    await new Promise(r => setTimeout(r, 300));
+  }
+  return false;
+}
+
+// ─── Poll /health via HTTP (confirms Express is actually handling requests) ──
+async function waitForApi(timeoutMs = 120_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const r = await fetch(HEALTH, { signal: AbortSignal.timeout(3000) });
+      if (r.ok) return true;
+    } catch { /* not ready */ }
     await new Promise(r => setTimeout(r, 400));
   }
   return false;
@@ -91,28 +112,26 @@ attach(ui, 'UI ', magenta);
 // ─── Wait for both services ───────────────────────────────────────────────────
 emit('SYS', yellow, 'waiting for API and Vite...');
 const [apiOk, uiOk] = await Promise.all([
-  waitForUrl(HEALTH,    'API server'),
-  waitForUrl(DASH_URL,  'Vite dev server'),
+  waitForApi(),
+  waitForPort(UI_PORT, 'Vite'),
 ]);
 
-// Kick Vite's dependency pre-bundling now so first real browser load is fast.
-// (Vite compiles on demand; fetching the page once warms the cache.)
-// We already did this implicitly by awaiting DASH_URL above.
-
 // ─── Ready banner ─────────────────────────────────────────────────────────────
-const BAR = DIM('─'.repeat(54));
+const BAR  = DIM('─'.repeat(54));
+const NOTE = DIM('(first page load compiles TypeScript — takes a few seconds)');
 if (apiOk && uiOk) {
   process.stdout.write('\n');
   process.stdout.write(`  ${BOLD(green('✓  All systems go — open your browser'))}\n`);
   process.stdout.write(`  ${BAR}\n`);
-  process.stdout.write(`  ${cyan('Dashboard')}   →  ${BOLD(DASH_URL)}  ${green('← HMR auto-refresh')}\n`);
+  process.stdout.write(`  ${cyan('Dashboard')}   →  ${BOLD(`http://localhost:${UI_PORT}/dashboard/`)}  ${green('← live HMR')}\n`);
   process.stdout.write(`  ${cyan('API Server')}  →  ${BOLD(`http://localhost:${API_PORT}`)}\n`);
   process.stdout.write(`  ${BAR}\n`);
+  process.stdout.write(`  ${NOTE}\n`);
   process.stdout.write(`  ${DIM('Changes to dashboard/src/ auto-refresh the browser.')}\n`);
   process.stdout.write(`  ${DIM('Press Ctrl+C to stop all services.')}\n\n`);
 } else {
-  if (!apiOk) emit('SYS', red, red('API did not start within 2 minutes — check [API] logs above'));
-  if (!uiOk)  emit('SYS', red, red('Vite did not start within 2 minutes — check [UI ] logs above'));
+  if (!apiOk) emit('SYS', red, red('API did not start within 2 min — check [API] logs above'));
+  if (!uiOk)  emit('SYS', red, red('Vite did not start within 2 min — check [UI ] logs above'));
 }
 
 // ─── Graceful shutdown ────────────────────────────────────────────────────────
