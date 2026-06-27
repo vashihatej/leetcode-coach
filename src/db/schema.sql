@@ -75,3 +75,21 @@ CREATE TABLE IF NOT EXISTS wishlist (
   notes TEXT,
   added_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS problem_lists (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT UNIQUE NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS list_problems (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  list_id      INTEGER NOT NULL REFERENCES problem_lists(id) ON DELETE CASCADE,
+  problem_id   INTEGER REFERENCES problems(id),
+  slug         TEXT NOT NULL,
+  title        TEXT,
+  url          TEXT,
+  difficulty   TEXT,
+  pattern_tags TEXT,
+  UNIQUE(list_id, slug)
+);
