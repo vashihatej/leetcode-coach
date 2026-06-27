@@ -1,58 +1,151 @@
 import { useState, useMemo } from 'react';
-import { ExternalLink, Plus, Play } from 'lucide-react';
+import { ExternalLink, Plus, Play, X } from 'lucide-react';
 import { useProblems } from '../../hooks/useProblems';
 import { useAddWishlist } from '../../hooks/useWishlist';
-import type { Problem } from '../../lib/types';
+import { computeComfort } from '../../lib/comfort';
+import type { Problem, ComfortLevel } from '../../lib/types';
 import ComfortBadge from './ComfortBadge';
 import AttemptDrawer from './AttemptDrawer';
+import MultiSelectDropdown from './MultiSelectDropdown';
 
-const DIFF: Record<string, string> = {
+const DIFF_COLOR: Record<string, string> = {
   Easy: 'text-green-400', Medium: 'text-amber-400', Hard: 'text-red-400',
 };
+
+const COMFORT_LEVELS: ComfortLevel[] = ['instinct', 'solid', 'learning', 'shaky', 'new'];
+const COMFORT_ACTIVE = 'bg-indigo-900/40 border border-indigo-700 text-indigo-300';
+const COMFORT_IDLE = 'bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600';
 
 export default function ProblemTable() {
   const { data: problems = [], isLoading } = useProblems();
   const addWishlist = useAddWishlist();
   const [selected, setSelected] = useState<Problem | null>(null);
   const [search, setSearch] = useState('');
-  const [diffFilter, setDiffFilter] = useState('');
+  const [diffFilter, setDiffFilter] = useState<string[]>([]);
+  const [patternFilter, setPatternFilter] = useState<string[]>([]);
+  const [comfortFilter, setComfortFilter] = useState<string[]>([]);
+
+  const allPatterns = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of problems) {
+      const tags: string[] = JSON.parse(p.patterns ?? '[]');
+      tags.forEach(t => set.add(t));
+    }
+    return [...set].sort();
+  }, [problems]);
 
   const filtered = useMemo(() =>
     problems.filter(p => {
       const name = (p.title ?? p.slug).toLowerCase();
+      const tags: string[] = JSON.parse(p.patterns ?? '[]');
+      const comfort = computeComfort(p);
       return (
         (!search || name.includes(search.toLowerCase())) &&
-        (!diffFilter || p.difficulty === diffFilter)
+        (!diffFilter.length || diffFilter.includes(p.difficulty ?? '')) &&
+        (!patternFilter.length || tags.some(t => patternFilter.includes(t))) &&
+        (!comfortFilter.length || comfortFilter.includes(comfort))
       );
     }),
-    [problems, search, diffFilter]
+    [problems, search, diffFilter, patternFilter, comfortFilter]
   );
+
+  const hasFilters = diffFilter.length > 0 || patternFilter.length > 0 || comfortFilter.length > 0;
+
+  function clearAll() {
+    setDiffFilter([]);
+    setPatternFilter([]);
+    setComfortFilter([]);
+  }
+
+  function removeChip(type: 'diff' | 'pattern' | 'comfort', value: string) {
+    if (type === 'diff') setDiffFilter(f => f.filter(x => x !== value));
+    if (type === 'pattern') setPatternFilter(f => f.filter(x => x !== value));
+    if (type === 'comfort') setComfortFilter(f => f.filter(x => x !== value));
+  }
+
+  const activeChips = [
+    ...diffFilter.map(v => ({ label: v, type: 'diff' as const })),
+    ...patternFilter.map(v => ({ label: v, type: 'pattern' as const })),
+    ...comfortFilter.map(v => ({ label: v, type: 'comfort' as const })),
+  ];
 
   if (isLoading) return <div className="p-6 text-gray-400 text-sm">Loading problems…</div>;
 
   return (
     <>
       <div className="p-6">
-        <div className="flex gap-3 mb-5">
+        {/* Filter bar */}
+        <div className="flex flex-wrap gap-2 mb-3">
           <input
             type="text"
             placeholder="Search problems…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+            className="flex-1 min-w-40 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
           />
-          <select
-            value={diffFilter}
-            onChange={e => setDiffFilter(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-          >
-            <option value="">All</option>
-            <option value="Easy">Easy</option>
-            <option value="Medium">Medium</option>
-            <option value="Hard">Hard</option>
-          </select>
+          <MultiSelectDropdown
+            label="Difficulty"
+            options={['Easy', 'Medium', 'Hard']}
+            selected={diffFilter}
+            onChange={setDiffFilter}
+          />
+          <MultiSelectDropdown
+            label="Patterns"
+            options={allPatterns}
+            selected={patternFilter}
+            onChange={setPatternFilter}
+          />
+          {hasFilters && (
+            <button
+              onClick={clearAll}
+              className="px-3 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Clear all
+            </button>
+          )}
         </div>
 
+        {/* Comfort chip row */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs text-gray-500 shrink-0">Comfort:</span>
+          {COMFORT_LEVELS.map(level => (
+            <button
+              key={level}
+              onClick={() =>
+                setComfortFilter(f =>
+                  f.includes(level) ? f.filter(x => x !== level) : [...f, level]
+                )
+              }
+              className={`px-2.5 py-1 text-xs rounded-full capitalize transition-colors ${
+                comfortFilter.includes(level) ? COMFORT_ACTIVE : COMFORT_IDLE
+              }`}
+            >
+              {level}
+            </button>
+          ))}
+        </div>
+
+        {/* Active filter chips */}
+        {activeChips.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {activeChips.map(({ label, type }) => (
+              <span
+                key={`${type}-${label}`}
+                className="flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-800 border border-gray-700 text-gray-300 rounded-full"
+              >
+                {label}
+                <button
+                  onClick={() => removeChip(type, label)}
+                  className="text-gray-500 hover:text-white"
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Table */}
         <div className="overflow-x-auto rounded-lg border border-gray-700">
           <table className="w-full text-sm">
             <thead className="bg-gray-800/60">
@@ -68,7 +161,7 @@ export default function ProblemTable() {
             </thead>
             <tbody className="divide-y divide-gray-800">
               {filtered.map(p => {
-                const tags = JSON.parse(p.patterns ?? '[]') as string[];
+                const tags: string[] = JSON.parse(p.patterns ?? '[]');
                 return (
                   <tr
                     key={p.id}
@@ -92,7 +185,7 @@ export default function ProblemTable() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs ${DIFF[p.difficulty ?? ''] ?? 'text-gray-400'}`}>
+                      <span className={`text-xs ${DIFF_COLOR[p.difficulty ?? ''] ?? 'text-gray-400'}`}>
                         {p.difficulty ?? '—'}
                       </span>
                     </td>
