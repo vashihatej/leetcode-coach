@@ -380,3 +380,47 @@ export function listRecentAttempts(db, limit = 10) {
     LIMIT ?
   `).all(limit);
 }
+
+export function getLists(db) {
+  return db.prepare(`
+    SELECT pl.id, pl.name, pl.created_at,
+           COUNT(lp.id) AS problem_count
+    FROM problem_lists pl
+    LEFT JOIN list_problems lp ON lp.list_id = pl.id
+    GROUP BY pl.id
+    ORDER BY pl.created_at DESC
+  `).all();
+}
+
+export function createList(db, name) {
+  const result = db.prepare('INSERT INTO problem_lists (name) VALUES (?)').run(name);
+  return { id: result.lastInsertRowid, name };
+}
+
+export function getListProblems(db, listId) {
+  return db.prepare(
+    'SELECT * FROM list_problems WHERE list_id = ? ORDER BY id'
+  ).all(listId);
+}
+
+export function bulkInsertListProblems(db, listId, problems) {
+  const upsertLP = db.prepare(`
+    INSERT INTO list_problems (list_id, slug, url, pattern_tags)
+    VALUES (@listId, @slug, @url, @patternTags)
+    ON CONFLICT(list_id, slug) DO UPDATE SET pattern_tags = excluded.pattern_tags
+  `);
+  const upsertW = db.prepare(`
+    INSERT OR IGNORE INTO wishlist (slug, url) VALUES (@slug, @url)
+  `);
+  const run = db.transaction((probs) => {
+    for (const p of probs) {
+      upsertLP.run({ listId, slug: p.slug, url: p.url, patternTags: JSON.stringify(p.pattern_tags) });
+      upsertW.run({ slug: p.slug, url: p.url ?? null });
+    }
+  });
+  run(problems);
+}
+
+export function deleteList(db, listId) {
+  db.prepare('DELETE FROM problem_lists WHERE id = ?').run(listId);
+}
