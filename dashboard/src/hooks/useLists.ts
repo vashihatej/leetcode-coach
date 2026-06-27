@@ -36,6 +36,9 @@ export function useDeleteList() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => api.deleteList(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['lists'] }),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: ['lists'] });
+      qc.invalidateQueries({ queryKey: ['list-problems', id] });
+    },
   });
 }
