@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { ExternalLink, Plus, Play, X, Sparkles, Loader2 } from 'lucide-react';
+import { ExternalLink, Plus, Play, X, Sparkles, Loader2, Bookmark } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useProblems } from '../../hooks/useProblems';
-import { useAddWishlist } from '../../hooks/useWishlist';
+import { useWishlist, useAddWishlist } from '../../hooks/useWishlist';
 import { computeComfort } from '../../lib/comfort';
 import { api } from '../../lib/api';
 import type { Problem, ComfortLevel } from '../../lib/types';
@@ -20,11 +20,18 @@ const COMFORT_IDLE = 'bg-gray-800 border border-gray-700 text-gray-400 hover:tex
 
 export default function ProblemTable() {
   const { data: problems = [], isLoading } = useProblems();
+  const { data: wishlistItems = [] } = useWishlist();
   const addWishlist = useAddWishlist();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Problem | null>(null);
   const [generatingSlug, setGeneratingSlug] = useState<string | null>(null);
+  const [addingSlug, setAddingSlug] = useState<string | null>(null);
   const [vizError, setVizError] = useState<{ slug: string; msg: string } | null>(null);
+
+  const wishlistedSlugs = useMemo(
+    () => new Set(wishlistItems.map(w => w.slug)),
+    [wishlistItems]
+  );
 
   const generateViz = useMutation({
     mutationFn: (slug: string) => api.generateViz(slug),
@@ -256,21 +263,33 @@ export default function ProblemTable() {
                       )}
                     </td>
                     <td className="px-3 py-3 text-center">
-                      <button
-                        title="Add to wishlist"
-                        onClick={e => {
-                          e.stopPropagation();
-                          addWishlist.mutate({
-                            slug: p.slug,
-                            title: p.title ?? undefined,
-                            difficulty: p.difficulty ?? undefined,
-                            url: p.url ?? undefined,
-                          });
-                        }}
-                        className="text-gray-600 hover:text-indigo-400 transition-colors"
-                      >
-                        <Plus size={14} />
-                      </button>
+                      {wishlistedSlugs.has(p.slug) ? (
+                        <span title="Already in wishlist" className="inline-flex text-green-500">
+                          <Bookmark size={14} />
+                        </span>
+                      ) : addingSlug === p.slug ? (
+                        <Loader2 size={14} className="animate-spin text-indigo-400 mx-auto" />
+                      ) : (
+                        <button
+                          title="Add to wishlist"
+                          onClick={e => {
+                            e.stopPropagation();
+                            setAddingSlug(p.slug);
+                            addWishlist.mutate(
+                              {
+                                slug: p.slug,
+                                title: p.title ?? undefined,
+                                difficulty: p.difficulty ?? undefined,
+                                url: p.url ?? undefined,
+                              },
+                              { onSettled: () => setAddingSlug(null) }
+                            );
+                          }}
+                          className="text-gray-600 hover:text-indigo-400 transition-colors"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
