@@ -60,4 +60,6 @@ export const api = {
   bulkAddToList: (id: number, text: string) =>
     post<{ inserted: number }>(`/api/lists/${id}/problems/bulk`, { text }),
   deleteList: (id: number) => del<{ ok: boolean }>(`/api/lists/${id}`),
+  generateViz: (slug: string) =>
+    post<{ ok: boolean; viz_path: string }>(`/api/problems/${slug}/visualize`, {}),
 };

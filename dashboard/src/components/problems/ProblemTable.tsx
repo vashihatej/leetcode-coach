@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
-import { ExternalLink, Plus, Play, X } from 'lucide-react';
+import { ExternalLink, Plus, Play, X, Sparkles, Loader2 } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useProblems } from '../../hooks/useProblems';
 import { useAddWishlist } from '../../hooks/useWishlist';
 import { computeComfort } from '../../lib/comfort';
+import { api } from '../../lib/api';
 import type { Problem, ComfortLevel } from '../../lib/types';
 import ComfortBadge from './ComfortBadge';
 import AttemptDrawer from './AttemptDrawer';
@@ -19,7 +21,16 @@ const COMFORT_IDLE = 'bg-gray-800 border border-gray-700 text-gray-400 hover:tex
 export default function ProblemTable() {
   const { data: problems = [], isLoading } = useProblems();
   const addWishlist = useAddWishlist();
+  const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Problem | null>(null);
+  const [generatingSlug, setGeneratingSlug] = useState<string | null>(null);
+
+  const generateViz = useMutation({
+    mutationFn: (slug: string) => api.generateViz(slug),
+    onMutate: (slug) => setGeneratingSlug(slug),
+    onSettled: () => setGeneratingSlug(null),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['problems'] }),
+  });
   const [search, setSearch] = useState('');
   const [diffFilter, setDiffFilter] = useState<string[]>([]);
   const [patternFilter, setPatternFilter] = useState<string[]>([]);
@@ -156,7 +167,7 @@ export default function ProblemTable() {
                 <th className="px-4 py-3 font-medium">Attempts</th>
                 <th className="px-4 py-3 font-medium">Next Review</th>
                 <th className="px-4 py-3 font-medium">Patterns</th>
-                <th className="px-3 py-3 font-medium text-center">Viz</th>
+                <th className="px-3 py-3 font-medium text-center">Visualize</th>
                 <th className="px-3 py-3 font-medium text-center">Wishlist</th>
               </tr>
             </thead>
@@ -222,8 +233,16 @@ export default function ProblemTable() {
                         >
                           <Play size={13} />
                         </a>
+                      ) : generatingSlug === p.slug ? (
+                        <Loader2 size={13} className="animate-spin text-indigo-400 mx-auto" />
                       ) : (
-                        <span className="text-gray-700">—</span>
+                        <button
+                          title="Generate visualization"
+                          onClick={e => { e.stopPropagation(); generateViz.mutate(p.slug); }}
+                          className="text-gray-600 hover:text-indigo-400 transition-colors"
+                        >
+                          <Sparkles size={13} />
+                        </button>
                       )}
                     </td>
                     <td className="px-3 py-3 text-center">

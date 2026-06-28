@@ -31,6 +31,7 @@ function migrate(db) {
     ["description", "TEXT"],
     ["examples", "TEXT"],
     ["constraints", "TEXT"],
+    ["viz_path", "TEXT"],
   ];
   for (const [name, type] of additions) {
     if (!problemCols.some((column) => column.name === name)) {

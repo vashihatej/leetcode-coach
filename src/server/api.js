@@ -18,7 +18,11 @@ import {
   getListProblems,
   bulkInsertListProblems,
   deleteList,
+  getProblemForViz,
+  setProblemVizPath,
 } from '../db/queries.js';
+import { generateAndSaveViz } from './generate-viz.js';
+import { PUBLIC_DIR } from '../config.js';
 
 function localDate() {
   const d = new Date();
@@ -61,6 +65,18 @@ export function createApiRouter(db) {
   router.get('/problems/:slug/attempts', (req, res) =>
     res.json(listAttemptsForProblem(db, req.params.slug))
   );
+
+  router.post('/problems/:slug/visualize', async (req, res, next) => {
+    try {
+      const problem = getProblemForViz(db, req.params.slug);
+      if (!problem) return res.status(404).json({ ok: false, error: 'problem not found' });
+      const vizPath = await generateAndSaveViz({ problem, publicDir: PUBLIC_DIR });
+      setProblemVizPath(db, req.params.slug, vizPath);
+      res.json({ ok: true, viz_path: vizPath });
+    } catch (e) {
+      next(e);
+    }
+  });
 
   router.get('/patterns', (_req, res) => res.json(listPatternsWithStats(db)));
 
