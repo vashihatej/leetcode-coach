@@ -156,7 +156,8 @@ export default function ProblemTable() {
                 <th className="px-4 py-3 font-medium">Attempts</th>
                 <th className="px-4 py-3 font-medium">Next Review</th>
                 <th className="px-4 py-3 font-medium">Patterns</th>
-                <th className="px-4 py-3 font-medium"></th>
+                <th className="px-3 py-3 font-medium text-center">Viz</th>
+                <th className="px-3 py-3 font-medium text-center">Wishlist</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
@@ -209,36 +210,38 @@ export default function ProblemTable() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {p.last_viz_path && (
-                          <a
-                            href={`http://localhost:8765/${p.last_viz_path}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            title="Open visualization"
-                            onClick={e => e.stopPropagation()}
-                            className="text-indigo-500 hover:text-indigo-300 transition-colors"
-                          >
-                            <Play size={13} />
-                          </a>
-                        )}
-                        <button
-                          title="Add to wishlist"
-                          onClick={e => {
-                            e.stopPropagation();
-                            addWishlist.mutate({
-                              slug: p.slug,
-                              title: p.title ?? undefined,
-                              difficulty: p.difficulty ?? undefined,
-                              url: p.url ?? undefined,
-                            });
-                          }}
-                          className="text-gray-600 hover:text-indigo-400 transition-colors"
+                    <td className="px-3 py-3 text-center">
+                      {p.last_viz_path ? (
+                        <a
+                          href={`http://localhost:8765/${p.last_viz_path}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Open visualization"
+                          onClick={e => e.stopPropagation()}
+                          className="inline-flex text-indigo-500 hover:text-indigo-300 transition-colors"
                         >
-                          <Plus size={14} />
-                        </button>
-                      </div>
+                          <Play size={13} />
+                        </a>
+                      ) : (
+                        <span className="text-gray-700">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <button
+                        title="Add to wishlist"
+                        onClick={e => {
+                          e.stopPropagation();
+                          addWishlist.mutate({
+                            slug: p.slug,
+                            title: p.title ?? undefined,
+                            difficulty: p.difficulty ?? undefined,
+                            url: p.url ?? undefined,
+                          });
+                        }}
+                        className="text-gray-600 hover:text-indigo-400 transition-colors"
+                      >
+                        <Plus size={14} />
+                      </button>
                     </td>
                   </tr>
                 );
