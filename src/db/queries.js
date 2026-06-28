@@ -206,6 +206,9 @@ export function getStats(db) {
   const attemptsToday = db.prepare(
     "SELECT COUNT(*) as c FROM attempts WHERE date(date) = date('now')"
   ).get().c;
+  const solvedToday = db.prepare(
+    "SELECT COUNT(DISTINCT problem_id) as c FROM attempts WHERE solved = 1 AND date(date) = date('now')"
+  ).get().c;
   const dueToday = db.prepare(
     "SELECT COUNT(*) as c FROM review_queue WHERE due_date <= date('now')"
   ).get().c;
@@ -230,7 +233,7 @@ export function getStats(db) {
     }
   }
 
-  return { total_problems: totalProblems, solved_problems: solvedProblems, attempts_today: attemptsToday, due_today: dueToday, pattern_count: patternCount, streak };
+  return { total_problems: totalProblems, solved_problems: solvedProblems, attempts_today: attemptsToday, solved_today: solvedToday, due_today: dueToday, pattern_count: patternCount, streak };
 }
 
 export function listProblemsWithSummary(db) {
