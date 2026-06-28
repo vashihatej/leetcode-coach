@@ -58,15 +58,15 @@ export default function StatsBar() {
         icon={<CheckCircle2 size={14} />}
         accent="border-l-green-600"
         sub={
-          s != null ? (
+          s != null && total > 0 ? (
             <div>
-              <div className="w-full bg-gray-700 rounded-full h-1.5 mt-1">
+              <div className="w-full bg-gray-700 rounded-full h-1 mt-1">
                 <div
-                  className="bg-green-500 h-1.5 rounded-full transition-all"
+                  className="bg-green-500 h-1 rounded-full transition-all"
                   style={{ width: `${solvedRatio}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-0.5">{solvedRatio}% of total</p>
+              <p className="text-xs text-gray-500 mt-0.5">{solved} / {total} attempted</p>
             </div>
           ) : undefined
         }

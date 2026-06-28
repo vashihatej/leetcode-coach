@@ -64,8 +64,7 @@ function AttemptDetailDrawer({
         </div>
 
         {/* Attempt details */}
-        <div className="border border-gray-700 rounded-lg p-4 space-y-3">
-          {/* Date + solved status */}
+        <div className="border border-gray-700 rounded-lg p-4 space-y-2.5">
           <div className="flex justify-between text-xs">
             <span className="text-gray-400">
               {new Date(attempt.date).toLocaleDateString('en-US', {
@@ -73,25 +72,19 @@ function AttemptDetailDrawer({
               })}
             </span>
             <span className={attempt.solved ? 'text-green-400' : 'text-red-400'}>
-              {attempt.solved ? '✓ Solved' : '✗ Not solved'}
+              {attempt.solved ? '✓ Solved' : '✗ Failed'}
               {attempt.result_type ? ` · ${attempt.result_type}` : ''}
             </span>
           </div>
-
-          {/* Time spent */}
           {attempt.time_spent != null && (
             <div>
               <p className="text-xs text-gray-500">Time spent:</p>
               <p className="text-xs text-gray-300 mt-0.5">{attempt.time_spent} min</p>
             </div>
           )}
-
-          {/* Hints used */}
           {hints.length > 0 && (
             <div>
-              <p className="text-xs text-gray-500 mb-1">
-                Hints used ({hints.length}):
-              </p>
+              <p className="text-xs text-gray-500 mb-1">Hints used:</p>
               <ul className="space-y-0.5">
                 {hints.map(r => (
                   <li key={r} className="text-xs text-amber-400">
@@ -101,9 +94,48 @@ function AttemptDetailDrawer({
               </ul>
             </div>
           )}
-
-          {hints.length === 0 && (
-            <p className="text-xs text-gray-500">No hints used</p>
+          {attempt.mistakes && (
+            <div>
+              <p className="text-xs text-gray-500">Mistakes:</p>
+              <p className="text-xs text-gray-300 mt-0.5">{attempt.mistakes}</p>
+            </div>
+          )}
+          {attempt.final_approach && (
+            <div>
+              <p className="text-xs text-gray-500">Approach:</p>
+              <p className="text-xs text-gray-300 mt-0.5">{attempt.final_approach}</p>
+            </div>
+          )}
+          {attempt.aha_moments && (
+            <div>
+              <p className="text-xs text-gray-500">Aha moments:</p>
+              <p className="text-xs text-emerald-300 mt-0.5">{attempt.aha_moments}</p>
+            </div>
+          )}
+          {attempt.confusion_points && (
+            <div>
+              <p className="text-xs text-gray-500">Where I struggled:</p>
+              <p className="text-xs text-orange-300 mt-0.5">{attempt.confusion_points}</p>
+            </div>
+          )}
+          {attempt.analogy_liked && (
+            <div>
+              <p className="text-xs text-gray-500">Analogy that clicked:</p>
+              <p className="text-xs text-sky-300 mt-0.5 italic">{attempt.analogy_liked}</p>
+            </div>
+          )}
+          {attempt.viz_path && (
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Visualization:</p>
+              <a
+                href={`http://localhost:8765/${attempt.viz_path}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-indigo-400 hover:text-indigo-300 underline"
+              >
+                {attempt.viz_path.split('/').pop()}
+              </a>
+            </div>
           )}
         </div>
       </div>

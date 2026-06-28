@@ -89,6 +89,12 @@ export interface RecentAttempt {
   result_type: string | null;
   hints_used: string;
   time_spent: number | null;
+  mistakes: string | null;
+  final_approach: string | null;
+  aha_moments: string | null;
+  confusion_points: string | null;
+  analogy_liked: string | null;
+  viz_path: string | null;
   slug: string;
   title: string | null;
   difficulty: string | null;

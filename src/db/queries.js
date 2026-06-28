@@ -403,6 +403,8 @@ export function listRecentAttempts(db, limit = 10) {
   return db.prepare(`
     SELECT
       a.id, a.date, a.solved, a.result_type, a.hints_used, a.time_spent,
+      a.mistakes, a.final_approach, a.aha_moments, a.confusion_points,
+      a.analogy_liked, a.viz_path,
       p.slug, p.title, p.difficulty, p.url,
       r.ease, r.reps
     FROM attempts a

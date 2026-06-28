@@ -7,7 +7,7 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 const COL_PX = 17;
 
 function intensity(count: number): string {
-  if (count === 0) return 'bg-slate-800';
+  if (count === 0) return 'bg-gray-700';
   if (count <= 2) return 'bg-green-900';
   if (count <= 5) return 'bg-green-700';
   return 'bg-green-500';
