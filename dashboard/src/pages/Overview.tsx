@@ -13,10 +13,7 @@ export default function Overview() {
       </div>
       <StatsBar />
       <div className="px-6 mb-6">
-        <h2 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">
-          Activity — past 52 weeks
-        </h2>
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <ActivityHeatmap data={activity} />
         </div>
       </div>
