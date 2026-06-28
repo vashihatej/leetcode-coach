@@ -198,36 +198,48 @@ export function removeFromWishlist(db, slug) {
   db.prepare('DELETE FROM wishlist WHERE slug = ?').run(slug);
 }
 
+function localDateStr() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export function getStats(db) {
+  const today = localDateStr();
+
   const totalProblems = db.prepare('SELECT COUNT(*) as c FROM problems').get().c;
   const solvedProblems = db.prepare(
     'SELECT COUNT(DISTINCT problem_id) as c FROM attempts WHERE solved = 1'
   ).get().c;
   const attemptsToday = db.prepare(
-    "SELECT COUNT(*) as c FROM attempts WHERE date(date) = date('now')"
-  ).get().c;
+    "SELECT COUNT(*) as c FROM attempts WHERE date(date, 'localtime') = ?"
+  ).get(today).c;
   const solvedToday = db.prepare(
-    "SELECT COUNT(DISTINCT problem_id) as c FROM attempts WHERE solved = 1 AND date(date) = date('now')"
-  ).get().c;
+    "SELECT COUNT(DISTINCT problem_id) as c FROM attempts WHERE solved = 1 AND date(date, 'localtime') = ?"
+  ).get(today).c;
   const dueToday = db.prepare(
-    "SELECT COUNT(*) as c FROM review_queue WHERE due_date <= date('now')"
-  ).get().c;
+    "SELECT COUNT(*) as c FROM review_queue WHERE due_date <= ?"
+  ).get(today).c;
   const patternCount = db.prepare('SELECT COUNT(*) as c FROM patterns').get().c;
 
   const dates = db
-    .prepare("SELECT DISTINCT date(date) as day FROM attempts ORDER BY day DESC")
+    .prepare("SELECT DISTINCT date(date, 'localtime') as day FROM attempts ORDER BY day DESC")
     .all()
     .map(r => r.day);
 
   let streak = 0;
-  const todayStr = new Date().toISOString().slice(0, 10);
-  let expected = todayStr;
+  let expected = today;
   for (const day of dates) {
     if (day === expected) {
       streak++;
-      const d = new Date(expected + 'T00:00:00Z');
-      d.setUTCDate(d.getUTCDate() - 1);
-      expected = d.toISOString().slice(0, 10);
+      const d = new Date(expected + 'T12:00:00');
+      d.setDate(d.getDate() - 1);
+      const y = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      const dy = String(d.getDate()).padStart(2, '0');
+      expected = `${y}-${mo}-${dy}`;
     } else {
       break;
     }
@@ -318,10 +330,10 @@ export function listDueReviewsFull(db, today, windowDays = 7) {
 
 export function getActivityData(db, since) {
   return db.prepare(`
-    SELECT date(date) as date, COUNT(*) as count
+    SELECT date(date, 'localtime') as date, COUNT(*) as count
     FROM attempts
-    WHERE date(date) >= ?
-    GROUP BY date(date)
+    WHERE date(date, 'localtime') >= ?
+    GROUP BY date(date, 'localtime')
     ORDER BY date ASC
   `).all(since);
 }

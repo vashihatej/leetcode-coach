@@ -20,6 +20,11 @@ import {
   deleteList,
 } from '../db/queries.js';
 
+function localDate() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 function parseBulkText(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const patternMap = {};   // slug -> Set<string>
@@ -68,12 +73,14 @@ export function createApiRouter(db) {
   );
 
   router.get('/review/due', (_req, res) => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDate();
     res.json(listDueReviewsFull(db, today, 7));
   });
 
   router.get('/activity', (_req, res) => {
-    const since = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 1);
+    const since = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     res.json(getActivityData(db, since));
   });
 
