@@ -24,12 +24,14 @@ export default function ProblemTable() {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Problem | null>(null);
   const [generatingSlug, setGeneratingSlug] = useState<string | null>(null);
+  const [vizError, setVizError] = useState<{ slug: string; msg: string } | null>(null);
 
   const generateViz = useMutation({
     mutationFn: (slug: string) => api.generateViz(slug),
-    onMutate: (slug) => setGeneratingSlug(slug),
+    onMutate: (slug) => { setGeneratingSlug(slug); setVizError(null); },
     onSettled: () => setGeneratingSlug(null),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['problems'] }),
+    onError: (err: Error, slug) => setVizError({ slug, msg: err.message }),
   });
   const [search, setSearch] = useState('');
   const [diffFilter, setDiffFilter] = useState<string[]>([]);
@@ -235,6 +237,14 @@ export default function ProblemTable() {
                         </a>
                       ) : generatingSlug === p.slug ? (
                         <Loader2 size={13} className="animate-spin text-indigo-400 mx-auto" />
+                      ) : vizError?.slug === p.slug ? (
+                        <button
+                          title={vizError.msg}
+                          onClick={e => { e.stopPropagation(); generateViz.mutate(p.slug); }}
+                          className="text-red-500 hover:text-red-300 transition-colors"
+                        >
+                          <Sparkles size={13} />
+                        </button>
                       ) : (
                         <button
                           title="Generate visualization"

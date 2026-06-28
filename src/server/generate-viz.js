@@ -136,6 +136,9 @@ const EXAMPLE_HTML = `<!doctype html>
 </html>`;
 
 export async function generateVizHtml({ title, difficulty, description, examples, patterns, topicTags }) {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY is not set. Add it to a .env file in the repo root: ANTHROPIC_API_KEY=sk-ant-...');
+  }
   const patternList = (() => {
     try { return JSON.parse(patterns || '[]').join(', ') || 'none'; } catch { return 'none'; }
   })();
