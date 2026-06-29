@@ -27,8 +27,9 @@ LeetCode Coach is built around a different idea: the only way to build interview
 - 🔁 **SM-2 spaced repetition** — review queue that adapts to how well you know each problem
 - 📖 **Pattern wiki** — auto-generated knowledge cards with recognition signals, invariant, template code, and common traps
 - 📝 **Rich attempt history** — aha moments, confusion points, analogy that clicked, visualization links
-- 🎬 **Animated visualizations** — two-pointer, recursion tree, and more
-- 📈 **Activity heatmap** and streak tracking
+- 🎬 **Animated visualizations** — step-through animations built during coaching sessions (two-pointer, recursion tree, linked list reversal, and more)
+- ✨ **AI viz generation** — click the sparkle button on any problem to have Claude generate a custom visualization on the fly
+- 📈 **GitHub-style activity heatmap** — 5-level green palette, month/day labels, today ring, and a Less → More legend
 - 🔌 **Chrome extension** — streams your live LeetCode problem, code, and run/submit results directly into the coaching session
 
 ## Quick Start
@@ -117,12 +118,15 @@ Chrome Extension  ──POST /api/session──▶  Node server (port 8765)
 ## Dashboard
 
 ### Overview
-Activity heatmap, stats (streak, problems solved, due today), upcoming reviews, and recent attempts.
+GitHub-style activity heatmap (53-week grid, 5-level green palette, month labels, Mon/Wed/Fri day labels, today ring, Less → More legend), stats bar (streak, total solved, active days), upcoming reviews, and a recent attempts drawer you can click into for full session details.
 
 ![Overview](docs/screenshots/overview.png)
 
 ### Problems
-Every problem you've attempted, with comfort badges, pattern tags, next review date, and a `▶` button for problems that have a saved visualization.
+Every problem you've attempted, with comfort badges, pattern tags, next review date, and two action columns:
+
+- **Visualize** — `▶` plays a saved visualization; `✦` (sparkle) calls Claude to generate one on the fly, saves it to `public/viz/`, and links it to the problem automatically.
+- **Wishlist** — bookmark any problem to revisit it later.
 
 ![Problems](docs/screenshots/problems.png)
 
@@ -151,12 +155,18 @@ Problems you want to do but haven't started. Paste a LeetCode URL and it populat
 
 ## Visualizations
 
-With the server running:
+With the server running, open any of these directly in your browser:
 
-- `http://localhost:8765/viz/two-pointer-sorted.html`
-- `http://localhost:8765/viz/recursion-subsets.html`
+| Visualization | URL |
+|---|---|
+| Two pointers — sorted array | `http://localhost:8765/viz/two-pointer-sorted.html` |
+| Recursion tree — subsets | `http://localhost:8765/viz/recursion-subsets.html` |
+| Reverse linked list — iterative | `http://localhost:8765/viz/reverse-linked-list-iterative.html` |
+| Container with most water | `http://localhost:8765/viz/container-with-most-water.html` |
 
-The coach can build new visualizations during a session (saved to `public/viz/`) and they link back from the problem's attempt history.
+Each viz is a standalone HTML page with step-through controls (← → keys or play button), a code panel highlighting the active line, a live state table, and a note for each step. Built with the shared `viz-kit.js` + `viz-kit.css`.
+
+The coach builds new visualizations automatically during a session — saved to `public/viz/` and linked from the attempt history. You can also trigger generation manually from the Problems dashboard using the `✦` button.
 
 ## CLI Reference
 

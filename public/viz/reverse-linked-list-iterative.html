@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Reverse Linked List — Iterative</title>
+  <link rel="stylesheet" href="/viz/viz-kit.css" />
+</head>
+<body class="viz-app">
+  <pre id="code" class="viz-code"></pre>
+  <div class="viz-stagewrap">
+    <h1 class="viz-title">Reverse Linked List — Iterative (prev · cur · temp)</h1>
+    <div id="stage" class="viz-stage"></div>
+    <div id="note" class="viz-note"></div>
+  </div>
+  <div id="state" class="viz-state"></div>
+  <div id="controls" class="viz-controls"></div>
+
+  <script type="module">
+    import { Viz, lerp } from "/viz/viz-kit.js";
+
+    const VALS = [1, 2, 3, 4, 5];
+    const N    = VALS.length;
+
+    const SOURCE = [
+      "prev, cur = None, head",
+      "while cur:",
+      "    temp = cur.next",
+      "    cur.next = prev",
+      "    prev = cur",
+      "    cur = temp",
+      "return prev",
+    ].join("\n");
+
+    // ── Simulate ────────────────────────────────────────────────────
+    function buildFrames() {
+      const frames = [];
+      let next = [1, 2, 3, 4, -1];
+      let prev = -1, cur = 0, temp = -1;
+
+      const snap = (line, note) =>
+        frames.push({ next: [...next], prev, cur, temp, line, note });
+
+      snap(0, "Initialize: prev = None, cur = head (node 1)");
+
+      while (cur !== -1) {
+        snap(1, `cur = node ${VALS[cur]} — enter loop`);
+
+        temp = next[cur];
+        snap(2, `Save  temp = cur.next = ${temp === -1 ? "None" : "node " + VALS[temp]}`);
+
+        next[cur] = prev;
+        snap(3, `Flip  node ${VALS[cur]}.next  →  ${prev === -1 ? "None" : "node " + VALS[prev]}`);
+
+        prev = cur;
+        snap(4, `Advance  prev  →  node ${VALS[prev]}`);
+
+        cur = temp;
+        snap(5, `Advance  cur   →  ${cur === -1 ? "None  (loop exits)" : "node " + VALS[cur]}`);
+      }
+
+      snap(6, `Return prev — node ${VALS[prev]} is the new head ✓`);
+      return frames;
+    }
+
+    const frames = buildFrames();
+
+    // ── Layout ──────────────────────────────────────────────────────
+    const SW = 680, SH = 280;
+    const NW = 44,  NH = 40;
+    const GAP = 72, X0 = 80;
+
+    const nx  = (i) => X0 + i * (NW + GAP);   // left edge of node i
+    const ncx = (i) => nx(i) + NW / 2;         // centre-x of node i
+    const NY  = SH / 2 - NH / 2;               // top edge of all nodes
+    const NCY = SH / 2;                         // centre-y of all nodes
+
+    // ── SVG scaffold ────────────────────────────────────────────────
+    const stage = document.getElementById("stage");
+    const svg   = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", `0 0 ${SW} ${SH}`);
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    svg.style.cssText = "width:100%;height:100%;overflow:visible;";
+    stage.appendChild(svg);
+
+    // Arrowhead markers
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    const mkMarker = (id, color) => {
+      const m = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+      m.setAttribute("id", id);
+      m.setAttribute("markerWidth", "8");
+      m.setAttribute("markerHeight", "6");
+      m.setAttribute("refX", "7");
+      m.setAttribute("refY", "3");
+      m.setAttribute("orient", "auto");
+      const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      p.setAttribute("d", "M0,0 L0,6 L8,3 z");
+      p.setAttribute("fill", color);
+      m.appendChild(p);
+      return m;
+    };
+    defs.appendChild(mkMarker("mGray",  "#8b949e"));
+    defs.appendChild(mkMarker("mGreen", "#3fb950"));
+    defs.appendChild(mkMarker("mBlue",  "#58a6ff"));
+    svg.appendChild(defs);
+
+    // Arrow group (behind nodes)
+    const arrowG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    svg.appendChild(arrowG);
+
+    // SVG element helpers
+    const svgEl = (tag, attrs) => {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      return el;
+    };
+    const mkText = (x, y, txt, fill, size = 11) =>
+      svgEl("text", { x, y, fill, "font-size": size, "font-family": "ui-monospace,monospace",
+                      "text-anchor": "middle", "dominant-baseline": "middle" });
+
+    // Node rects + value labels
+    const nodeEls = VALS.map((v, i) => {
+      const rect = svgEl("rect", {
+        x: nx(i), y: NY, width: NW, height: NH, rx: 8,
+        fill: "#21262d", stroke: "#30363d", "stroke-width": 2,
+      });
+      const txt = mkText(ncx(i), NCY, v, "#e6edf3", 16);
+      txt.setAttribute("font-weight", "600");
+      svg.append(rect, txt);
+      return { rect };
+    });
+
+    // Pointer labels (prev · cur · temp)
+    const mkLabel = (color) => {
+      const el = mkText(0, 0, "", color, 11);
+      el.setAttribute("font-weight", "700");
+      el.setAttribute("opacity", "0");
+      svg.appendChild(el);
+      return el;
+    };
+    const lblPrev = mkLabel("#3fb950");
+    const lblCur  = mkLabel("#d29922");
+    const lblTemp = mkLabel("#bc8cff");
+
+    // ── Arrow drawing ───────────────────────────────────────────────
+    function drawArrows({ next, cur: curIdx, line: activeLine }) {
+      arrowG.innerHTML = "";
+      const freshFlip = activeLine === 3;   // this frame just flipped curIdx
+
+      for (let i = 0; i < N; i++) {
+        const j = next[i];
+        const isNew = freshFlip && i === curIdx;
+        const gColor = isNew ? "#58a6ff" : "#3fb950";
+        const gMark  = isNew ? "mBlue"   : "mGreen";
+        const gWidth = isNew ? 2.5 : 2;
+
+        if (j === -1) {
+          if (i === N - 1) {
+            // Original tail — null arrow points RIGHT
+            const x1 = nx(i) + NW + 2, x2 = x1 + 42, y = NCY;
+            arrowG.append(
+              svgEl("line", { x1, y1: y, x2: x2 - 8, y2: y,
+                              stroke: "#8b949e", "stroke-width": 1.5,
+                              "marker-end": "url(#mGray)" }),
+              Object.assign(mkText(x2 + 14, y, "null", "#8b949e"), {})
+            );
+          } else {
+            // Reversed tail — null arrow points LEFT (from left edge of node)
+            const x1 = nx(i) - 2, x2 = x1 - 42, y = NCY;
+            arrowG.append(
+              svgEl("line", { x1, y1: y, x2: x2 + 8, y2: y,
+                              stroke: gColor, "stroke-width": gWidth,
+                              "marker-end": `url(#${gMark})` }),
+              Object.assign(mkText(x2 - 14, y, "null", "#8b949e"), {})
+            );
+          }
+        } else if (j > i) {
+          // Forward arc — above the nodes (original chain, not yet reversed)
+          const x1 = nx(i) + NW - 4, y1 = NY + 8;
+          const x2 = nx(j)      + 4, y2 = NY + 8;
+          const cy = NY - 14 - (j - i - 1) * 10;
+          arrowG.append(svgEl("path", {
+            d: `M${x1},${y1} Q${(x1+x2)/2},${cy} ${x2},${y2}`,
+            stroke: "#8b949e", "stroke-width": 1.5, fill: "none",
+            "marker-end": "url(#mGray)",
+          }));
+        } else {
+          // Backward arc — below the nodes (reversed chain, green)
+          const x1 = nx(i) + 4,      y1 = NY + NH - 8;
+          const x2 = nx(j) + NW - 4, y2 = NY + NH - 8;
+          const depth = 22 + (i - j - 1) * 14;
+          const cy = NY + NH + depth;
+          arrowG.append(svgEl("path", {
+            d: `M${x1},${y1} Q${(x1+x2)/2},${cy} ${x2},${y2}`,
+            stroke: gColor, "stroke-width": gWidth, fill: "none",
+            "marker-end": `url(#${gMark})`,
+          }));
+        }
+      }
+    }
+
+    // ── Main render ─────────────────────────────────────────────────
+    function render(idx, t) {
+      const f  = frames[idx];
+      const pf = frames[Math.max(0, idx - 1)];
+
+      drawArrows(f);
+
+      // Node highlight colours
+      nodeEls.forEach(({ rect }, i) => {
+        let fill = "#21262d", stroke = "#30363d";
+        if (i === f.cur)  { fill = "rgba(210,153,34,0.18)"; stroke = "#d29922"; }
+        if (i === f.prev && i !== f.cur) { fill = "rgba(63,185,80,0.14)"; stroke = "#3fb950"; }
+        if (i === f.temp && i !== f.cur && i !== f.prev)
+          { fill = "rgba(188,140,255,0.12)"; stroke = "#bc8cff"; }
+        rect.setAttribute("fill",   fill);
+        rect.setAttribute("stroke", stroke);
+      });
+
+      // Animate pointer labels
+      const place = (el, ci, pi, label, y) => {
+        if (ci === -1) { el.setAttribute("opacity", "0"); return; }
+        el.setAttribute("opacity", "1");
+        el.textContent = label;
+        const x0 = pi === -1 ? ncx(ci) : ncx(pi);
+        el.setAttribute("x", lerp(x0, ncx(ci), t));
+        el.setAttribute("y", y);
+      };
+
+      place(lblPrev, f.prev, pf.prev, "prev", NY - 18);
+      place(lblCur,  f.cur,  pf.cur,  "cur",  NY + NH + 18);
+      place(lblTemp, f.temp, pf.temp, "temp", NY + NH + 32);
+    }
+
+    // ── Viz.create ──────────────────────────────────────────────────
+    Viz.create({
+      controls:     document.getElementById("controls"),
+      frameCount:   frames.length,
+      render,
+      codeEl:       document.getElementById("code"),
+      source:       SOURCE,
+      lineForFrame: (i) => frames[i].line,
+      stateEl:      document.getElementById("state"),
+      stateRows:    (i) => {
+        const { prev, cur, temp } = frames[i];
+        return [
+          ["prev", prev === -1 ? "None" : String(VALS[prev])],
+          ["cur",  cur  === -1 ? "None" : String(VALS[cur])],
+          ["temp", temp === -1 ? "—"    : String(VALS[temp])],
+        ];
+      },
+      noteEl: document.getElementById("note"),
+      note:   (i) => frames[i].note,
+    });
+  </script>
+</body>
+</html>
