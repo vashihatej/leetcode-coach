@@ -113,9 +113,12 @@
       for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
       return el;
     };
-    const mkText = (x, y, txt, fill, size = 11) =>
-      svgEl("text", { x, y, fill, "font-size": size, "font-family": "ui-monospace,monospace",
+    const mkText = (x, y, txt, fill, size = 11) => {
+      const el = svgEl("text", { x, y, fill, "font-size": size, "font-family": "ui-monospace,monospace",
                       "text-anchor": "middle", "dominant-baseline": "middle" });
+      if (txt !== "" && txt != null) el.textContent = String(txt);
+      return el;
+    };
 
     // Node rects + value labels
     const nodeEls = VALS.map((v, i) => {

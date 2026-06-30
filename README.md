@@ -164,6 +164,8 @@ With the server running, open any of these directly in your browser:
 | Reverse linked list — iterative | `http://localhost:8765/viz/reverse-linked-list-iterative.html` |
 | Container with most water | `http://localhost:8765/viz/container-with-most-water.html` |
 
+![Visualization](docs/screenshots/visualization.png)
+
 Each viz is a standalone HTML page with step-through controls (← → keys or play button), a code panel highlighting the active line, a live state table, and a note for each step. Built with the shared `viz-kit.js` + `viz-kit.css`.
 
 The coach builds new visualizations automatically during a session — saved to `public/viz/` and linked from the attempt history. You can also trigger generation manually from the Problems dashboard using the `✦` button.
