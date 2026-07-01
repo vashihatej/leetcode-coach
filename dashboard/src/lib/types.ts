@@ -9,6 +9,7 @@ export interface Problem {
   last_result_type: string | null;
   last_hints_used: string | null;
   last_viz_path: string | null;
+  last_notes_path: string | null;
   attempt_count: number;
   due_date: string | null;
   ease: number | null;

@@ -256,6 +256,7 @@ export function listProblemsWithSummary(db) {
       (SELECT a.result_type FROM attempts a WHERE a.problem_id = p.id ORDER BY a.date DESC, a.id DESC LIMIT 1) as last_result_type,
       (SELECT a.hints_used FROM attempts a WHERE a.problem_id = p.id ORDER BY a.date DESC, a.id DESC LIMIT 1) as last_hints_used,
       COALESCE(p.viz_path, (SELECT a.viz_path FROM attempts a WHERE a.problem_id = p.id AND a.viz_path IS NOT NULL ORDER BY a.date DESC, a.id DESC LIMIT 1)) as last_viz_path,
+      p.notes_path as last_notes_path,
       (SELECT COUNT(*) FROM attempts a WHERE a.problem_id = p.id) as attempt_count,
       r.due_date,
       r.ease,
@@ -285,6 +286,27 @@ export function getProblemForViz(db, slug) {
 
 export function setProblemVizPath(db, slug, vizPath) {
   db.prepare('UPDATE problems SET viz_path = ? WHERE slug = ?').run(vizPath, slug);
+}
+
+export function setProblemNotesPath(db, slug, notesPath) {
+  db.prepare('UPDATE problems SET notes_path = ? WHERE slug = ?').run(notesPath, slug);
+}
+
+export function getProblemForNotes(db, slug) {
+  const problem = db.prepare(`
+    SELECT p.id, p.slug, p.title, p.difficulty, p.topic_tags, p.url,
+           p.description, p.examples, p.constraints,
+           (SELECT json_group_array(pat.name)
+            FROM patterns pat
+            JOIN pattern_problems pp ON pp.pattern_id = pat.id
+            WHERE pp.problem_id = p.id) as patterns
+    FROM problems p WHERE p.slug = ?
+  `).get(slug);
+  if (!problem) return null;
+  const attempt = db.prepare(`
+    SELECT * FROM attempts WHERE problem_id = ? ORDER BY date DESC, id DESC LIMIT 1
+  `).get(problem.id);
+  return { problem, attempt };
 }
 
 export function listAttemptsForProblem(db, slug) {

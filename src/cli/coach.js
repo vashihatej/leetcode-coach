@@ -11,6 +11,7 @@ import {
   cmdEnrichPattern,
   cmdPatternWikiStatus,
   cmdSetVizPath,
+  cmdGenerateNotes,
 } from "./commands.js";
 
 const db = openDb(DB_PATH);
@@ -82,5 +83,15 @@ program
   .requiredOption("--slug <slug>")
   .requiredOption("--viz-path <path>")
   .action((opts) => console.log(cmdSetVizPath(db, opts)));
+
+program
+  .command("generate-notes")
+  .description("generate a detailed study note HTML page for a solved problem")
+  .requiredOption("--slug <slug>")
+  .option("--code-file <path>", "path to a .py file to use as the code section (overrides session.md)")
+  .action(async (opts) => {
+    const result = await cmdGenerateNotes(db, { ...opts, sessionPath: SESSION_PATH });
+    console.log(result);
+  });
 
 program.parse();

@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Decode String — Stack</title>
+  <link rel="stylesheet" href="/viz/viz-kit.css" />
+  <style>
+    /* Stack columns */
+    .ds-stacks {
+      display: flex;
+      gap: 40px;
+      align-items: flex-end;
+      justify-content: center;
+      height: 100%;
+      padding-bottom: 24px;
+    }
+    .ds-stack-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .ds-stack-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .08em; }
+    .ds-stack { display: flex; flex-direction: column-reverse; gap: 4px; min-height: 40px; }
+    .ds-stack-item {
+      padding: 5px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--line);
+      border: 2px solid transparent;
+      min-width: 60px;
+      text-align: center;
+      transition: background .15s, border-color .15s;
+    }
+    .ds-stack-item--new  { border-color: var(--accent); background: rgba(88,166,255,.15); }
+    .ds-stack-item--pop  { border-color: #f85149; background: rgba(248,81,73,.12); }
+
+    /* cur_str / cur_num / output display */
+    .ds-vars {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      justify-content: center;
+      align-items: flex-start;
+    }
+    .ds-var { display: flex; flex-direction: column; gap: 2px; }
+    .ds-var-label { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: .08em; }
+    .ds-var-val {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent);
+      min-height: 24px;
+      word-break: break-all;
+    }
+
+    /* Input tape */
+    .ds-tape {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .ds-tape-cell {
+      width: 28px; height: 32px;
+      border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600;
+      background: var(--line);
+      border: 2px solid transparent;
+      transition: border-color .15s, background .15s;
+    }
+    .ds-tape-cell--active { border-color: var(--active); background: rgba(210,153,34,.18); }
+    .ds-tape-cell--done   { opacity: .35; }
+
+    /* Layout override for this viz */
+    .viz-stagewrap { padding: 12px 16px 0; }
+    .viz-stage { display: flex; flex-direction: column; }
+  </style>
+</head>
+<body class="viz-app">
+  <pre id="code" class="viz-code"></pre>
+  <div class="viz-stagewrap">
+    <h1 class="viz-title">Decode String — Stack (3[a2[c]])</h1>
+    <div id="stage" class="viz-stage"></div>
+    <div id="note" class="viz-note"></div>
+  </div>
+  <div id="state" class="viz-state"></div>
+  <div id="controls" class="viz-controls"></div>
+
+  <script type="module">
+    import { Viz } from "/viz/viz-kit.js";
+
+    const INPUT = "3[a2[c]]";
+    const N     = INPUT.length;
+
+    const SOURCE = [
+      "cur_num, cur_str = 0, ''",
+      "for c in s:",
+      "    if c.isdigit():",
+      "        cur_num = cur_num*10 + int(c)",
+      "    elif c == '[':",
+      "        num_stack.append(cur_num)",
+      "        str_stack.append(cur_str)",
+      "        cur_num, cur_str = 0, ''",
+      "    elif c == ']':",
+      "        k   = num_stack.pop()",
+      "        pre = str_stack.pop()",
+      "        cur_str = pre + cur_str * k",
+      "    else:",
+      "        cur_str += c",
+      "return cur_str",
+    ].join("\n");
+
+    // ── Simulate ────────────────────────────────────────────────────
+    function buildFrames() {
+      const frames = [];
+      let cur_num = 0, cur_str = "";
+      let num_stack = [], str_stack = [];
+      let newNumIdx = -1, newStrIdx = -1; // which stack item is "new"
+      let popNum = false, popStr = false;
+
+      const snap = (charIdx, line, note, extra = {}) =>
+        frames.push({
+          charIdx, line, note,
+          cur_num, cur_str,
+          num_stack: [...num_stack],
+          str_stack: [...str_stack],
+          newNumIdx, newStrIdx,
+          popNum, popStr,
+          ...extra,
+        });
+
+      snap(-1, 0, "Initialize cur_num=0, cur_str=''");
+
+      for (let i = 0; i < N; i++) {
+        const c = INPUT[i];
+        newNumIdx = -1; newStrIdx = -1;
+        popNum = false; popStr = false;
+
+        if (/\d/.test(c)) {
+          cur_num = cur_num * 10 + parseInt(c);
+          snap(i, 3, `Digit '${c}': cur_num = ${cur_num}`);
+        } else if (c === "[") {
+          num_stack.push(cur_num);
+          str_stack.push(cur_str);
+          newNumIdx = num_stack.length - 1;
+          newStrIdx = str_stack.length - 1;
+          snap(i, [5, 6], `'[': push cur_num=${cur_num} and cur_str='${cur_str}' onto stacks`);
+          cur_num = 0;
+          cur_str = "";
+          snap(i, 7, `Reset cur_num=0, cur_str=''`);
+          newNumIdx = -1; newStrIdx = -1;
+        } else if (c === "]") {
+          popNum = true; popStr = true;
+          const k   = num_stack[num_stack.length - 1];
+          const pre = str_stack[str_stack.length - 1];
+          snap(i, [9, 10], `']': pop k=${k}, pre='${pre}'`);
+          num_stack.pop();
+          str_stack.pop();
+          popNum = false; popStr = false;
+          const before = cur_str;
+          cur_str = pre + cur_str.repeat(k);
+          snap(i, 11, `cur_str = '${pre}' + '${before}'×${k} = '${cur_str}'`);
+        } else {
+          cur_str += c;
+          snap(i, 13, `Letter '${c}': cur_str = '${cur_str}'`);
+        }
+      }
+
+      snap(N, 14, `Done! Return cur_str = '${cur_str}'`);
+      return frames;
+    }
+
+    const frames = buildFrames();
+
+    // ── Build DOM ───────────────────────────────────────────────────
+    const stage = document.getElementById("stage");
+
+    // Input tape
+    const tape = document.createElement("div");
+    tape.className = "ds-tape";
+    const tapeCells = Array.from(INPUT).map((ch, i) => {
+      const cell = document.createElement("div");
+      cell.className = "ds-tape-cell";
+      cell.textContent = ch;
+      tape.appendChild(cell);
+      return cell;
+    });
+    // "done" marker
+    const doneMark = document.createElement("div");
+    doneMark.className = "ds-tape-cell";
+    doneMark.style.cssText = "color:var(--muted);border-color:transparent;background:transparent";
+    doneMark.textContent = "✓";
+    tape.appendChild(doneMark);
+    stage.appendChild(tape);
+
+    // Stacks + vars area
+    const body = document.createElement("div");
+    body.style.cssText = "display:flex;gap:40px;align-items:flex-end;justify-content:center;flex:1;padding-bottom:20px;";
+    stage.appendChild(body);
+
+    // Helper: make a stack column
+    const mkStackCol = (label) => {
+      const wrap = document.createElement("div");
+      wrap.className = "ds-stack-wrap";
+      const lbl = document.createElement("div");
+      lbl.className = "ds-stack-label";
+      lbl.textContent = label;
+      const stack = document.createElement("div");
+      stack.className = "ds-stack";
+      wrap.append(stack, lbl);
+      body.appendChild(wrap);
+      return stack;
+    };
+
+    const numStackEl  = mkStackCol("num_stack");
+    const strStackEl  = mkStackCol("str_stack");
+
+    // Variables panel
+    const varsEl = document.createElement("div");
+    varsEl.className = "ds-vars";
+    body.appendChild(varsEl);
+
+    const mkVar = (label) => {
+      const wrap = document.createElement("div");
+      wrap.className = "ds-var";
+      const lbl = document.createElement("div");
+      lbl.className = "ds-var-label";
+      lbl.textContent = label;
+      const val = document.createElement("div");
+      val.className = "ds-var-val";
+      val.textContent = "—";
+      wrap.append(lbl, val);
+      varsEl.appendChild(wrap);
+      return val;
+    };
+
+    const curNumEl  = mkVar("cur_num");
+    const curStrEl  = mkVar("cur_str");
+
+    // ── Render ──────────────────────────────────────────────────────
+    function renderStack(el, items, newIdx, isPop, color) {
+      el.innerHTML = "";
+      items.forEach((v, i) => {
+        const item = document.createElement("div");
+        item.className = "ds-stack-item";
+        item.textContent = JSON.stringify(v);
+        if (isPop && i === items.length - 1) {
+          item.style.borderColor = "#f85149";
+          item.style.background  = "rgba(248,81,73,.12)";
+        } else if (i === newIdx) {
+          item.style.borderColor = color;
+          item.style.background  = `${color}22`;
+        }
+        el.appendChild(item);
+      });
+    }
+
+    function render(i /*, t */) {
+      const f = frames[i];
+
+      // Tape
+      tapeCells.forEach((cell, idx) => {
+        cell.classList.toggle("ds-tape-cell--active", idx === f.charIdx);
+        cell.classList.toggle("ds-tape-cell--done",   idx < f.charIdx);
+      });
+      doneMark.style.opacity = f.charIdx === N ? "1" : "0";
+
+      // Stacks
+      renderStack(numStackEl, f.num_stack, f.newNumIdx, f.popNum,  "#58a6ff");
+      renderStack(strStackEl, f.str_stack, f.newStrIdx, f.popStr,  "#3fb950");
+
+      // Vars
+      curNumEl.textContent = String(f.cur_num);
+      curStrEl.textContent = f.cur_str === "" ? "''" : `'${f.cur_str}'`;
+    }
+
+    Viz.create({
+      controls:     document.getElementById("controls"),
+      frameCount:   frames.length,
+      render,
+      codeEl:       document.getElementById("code"),
+      source:       SOURCE,
+      lineForFrame: (i) => frames[i].line,
+      stateEl:      document.getElementById("state"),
+      stateRows:    (i) => {
+        const f = frames[i];
+        return [
+          ["cur_num", String(f.cur_num)],
+          ["cur_str", f.cur_str === "" ? "''" : `'${f.cur_str}'`],
+          ["num_stack", "[" + f.num_stack.join(", ") + "]"],
+          ["str_stack", "[" + f.str_stack.map(s => `'${s}'`).join(", ") + "]"],
+        ];
+      },
+      noteEl: document.getElementById("note"),
+      note:   (i) => frames[i].note,
+    });
+  </script>
+</body>
+</html>

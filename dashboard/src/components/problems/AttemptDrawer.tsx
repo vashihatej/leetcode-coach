@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { X, ExternalLink } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { X, ExternalLink, BookOpen, Sparkles, Loader2 } from 'lucide-react';
 import { api } from '../../lib/api';
 import type { Problem } from '../../lib/types';
 
@@ -18,10 +18,16 @@ export default function AttemptDrawer({
   problem: Problem | null;
   onClose: () => void;
 }) {
+  const queryClient = useQueryClient();
   const { data: attempts = [] } = useQuery({
     queryKey: ['attempts', problem?.slug],
     queryFn: () => api.attempts(problem!.slug),
     enabled: !!problem,
+  });
+
+  const generateNotes = useMutation({
+    mutationFn: (slug: string) => api.generateNotes(slug),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['problems'] }),
   });
 
   if (!problem) return null;
@@ -126,6 +132,37 @@ export default function AttemptDrawer({
           {attempts.length === 0 && (
             <p className="text-sm text-gray-500 text-center py-10">No attempts logged yet.</p>
           )}
+        </div>
+
+        {/* Study notes — per-problem, shown below all attempts */}
+        <div className="mt-6 pt-4 border-t border-gray-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BookOpen size={13} className="text-gray-500" />
+            <span className="text-xs text-gray-500 font-medium">Study Notes</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {problem.last_notes_path && (
+              <a
+                href={`http://localhost:8765/${problem.last_notes_path}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-sky-400 hover:text-sky-300 underline"
+              >
+                open notes
+              </a>
+            )}
+            <button
+              onClick={() => generateNotes.mutate(problem.slug)}
+              disabled={generateNotes.isPending}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 disabled:opacity-50 transition-colors"
+              title={problem.last_notes_path ? 'Regenerate study notes' : 'Generate study notes'}
+            >
+              {generateNotes.isPending
+                ? <Loader2 size={11} className="animate-spin" />
+                : <Sparkles size={11} />}
+              {problem.last_notes_path ? 'regenerate' : 'generate'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

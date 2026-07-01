@@ -20,8 +20,11 @@ import {
   deleteList,
   getProblemForViz,
   setProblemVizPath,
+  getProblemForNotes,
+  setProblemNotesPath,
 } from '../db/queries.js';
 import { generateAndSaveViz } from './generate-viz.js';
+import { generateAndSaveNotes } from './generate-notes.js';
 import { PUBLIC_DIR } from '../config.js';
 
 function localDate() {
@@ -73,6 +76,25 @@ export function createApiRouter(db) {
       const vizPath = await generateAndSaveViz({ problem, publicDir: PUBLIC_DIR });
       setProblemVizPath(db, req.params.slug, vizPath);
       res.json({ ok: true, viz_path: vizPath });
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  router.post('/problems/:slug/notes', async (req, res, next) => {
+    try {
+      const row = getProblemForNotes(db, req.params.slug);
+      if (!row) return res.status(404).json({ ok: false, error: 'problem not found' });
+      const { problem, attempt } = row;
+      if (!attempt) return res.status(400).json({ ok: false, error: 'no attempt logged yet' });
+      const patterns = JSON.parse(problem.patterns || '[]');
+      const patternWikis = patterns
+        .map(name => getPatternWiki(db, name))
+        .filter(Boolean);
+      const code = req.body?.code ?? '';
+      const notesPath = await generateAndSaveNotes({ problem, attempt, code, patternWikis, publicDir: PUBLIC_DIR });
+      setProblemNotesPath(db, req.params.slug, notesPath);
+      res.json({ ok: true, notes_path: notesPath });
     } catch (e) {
       next(e);
     }

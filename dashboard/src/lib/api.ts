@@ -62,4 +62,7 @@ export const api = {
   deleteList: (id: number) => del<{ ok: boolean }>(`/api/lists/${id}`),
   generateViz: (slug: string) =>
     post<{ ok: boolean; viz_path: string }>(`/api/problems/${slug}/visualize`, {}),
+
+  generateNotes: (slug: string) =>
+    post<{ ok: boolean; notes_path: string }>(`/api/problems/${slug}/notes`, {}),
 };

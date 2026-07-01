@@ -11,8 +11,12 @@ import {
   upsertPatternWiki,
   getPatternWiki,
   ensurePattern,
+  getProblemForNotes,
+  setProblemNotesPath,
 } from "../db/queries.js";
 import { gradeAttempt, nextSchedule } from "../sr/scheduler.js";
+import { generateAndSaveNotes } from "../server/generate-notes.js";
+import { PUBLIC_DIR, SESSION_PATH } from "../config.js";
 import fs from "node:fs";
 
 function parseHints(hints) {
@@ -75,10 +79,37 @@ export function cmdLogAttempt(db, args) {
   const patternSummary = patterns.length
     ? `\npatterns: ${patterns.join(", ")} (instinct ${args.instinctFired ? "fired" : "did not fire"})`
     : "";
+
+  let notesSummary = '';
+  try {
+    const notesRow = getProblemForNotes(db, slug);
+    if (notesRow?.attempt) {
+      const patternWikis = (JSON.parse(notesRow.problem.patterns || '[]'))
+        .map(name => getPatternWiki(db, name))
+        .filter(Boolean);
+      let code = '';
+      try {
+        const session = fs.readFileSync(SESSION_PATH, 'utf8');
+        const match = session.match(/```python\d*\n([\s\S]*?)```/);
+        if (match) code = match[1].trim();
+      } catch { /* no session.md */ }
+      const notesPath = generateAndSaveNotes({
+        problem: notesRow.problem,
+        attempt: notesRow.attempt,
+        code,
+        patternWikis,
+        publicDir: PUBLIC_DIR,
+      });
+      setProblemNotesPath(db, slug, notesPath);
+      notesSummary = `\nnotes: http://localhost:8765/${notesPath}`;
+    }
+  } catch { /* notes generation is best-effort */ }
+
   return (
     `logged attempt for ${slug} (total attempts: ${n})\n` +
     `next review: ${next.dueDate} (${next.interval} days)` +
-    patternSummary
+    patternSummary +
+    notesSummary
   );
 }
 
@@ -164,6 +195,38 @@ export function cmdSetVizPath(db, args) {
 
   db.prepare('UPDATE attempts SET viz_path = ? WHERE id = ?').run(vizPath, row.id);
   return `viz path set for ${slug} (attempt #${row.id}): ${vizPath}`;
+}
+
+export async function cmdGenerateNotes(db, args) {
+  const slug = String(args.slug || '').trim();
+  if (!slug) throw new Error('--slug is required');
+
+  const row = getProblemForNotes(db, slug);
+  if (!row) return `no problem found for slug: ${slug}`;
+  const { problem, attempt } = row;
+  if (!attempt) return `no attempts logged for: ${slug} — run log-attempt first`;
+
+  const patterns = JSON.parse(problem.patterns || '[]');
+  const patternWikis = patterns.map(name => getPatternWiki(db, name)).filter(Boolean);
+
+  // Priority: --code-file > --code > session.md python block
+  let code = '';
+  if (args['code-file'] || args.codeFile) {
+    try { code = fs.readFileSync(args['code-file'] ?? args.codeFile, 'utf8').trim(); } catch { /* ignore */ }
+  } else if (args.code) {
+    code = args.code;
+  } else if (args.sessionPath) {
+    try {
+      const session = fs.readFileSync(args.sessionPath, 'utf8');
+      const match = session.match(/```python\d*\n([\s\S]*?)```/);
+      if (match) code = match[1].trim();
+    } catch { /* session.md missing — proceed without code */ }
+  }
+
+  process.stderr.write(`generating notes for ${slug}...\n`);
+  const notesPath = await generateAndSaveNotes({ problem, attempt, code, patternWikis, publicDir: PUBLIC_DIR });
+  setProblemNotesPath(db, slug, notesPath);
+  return `notes saved: http://localhost:8765/${notesPath}`;
 }
 
 function daysBetween(fromDate, toDate) {
